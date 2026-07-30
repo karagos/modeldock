@@ -111,3 +111,54 @@ def build_search_params(q="", mtype="gguf", company="", capability="", sort="dow
     if search_terms:
         p["search"] = " ".join(search_terms)
     return p
+
+
+SPLIT_RE = re.compile(r"^(.*)-(\d{5})-of-(\d{5})\.gguf$", re.I)
+
+
+def sanitize_component(name):
+    s = re.sub(r"[^\w.\- ]", "_", name).strip(" .")
+    return s or "untitled"
+
+
+def comfy_subfolder(capability, tags, filename):
+    t = {x.lower() for x in (tags or [])}
+    n = (filename or "").lower()
+    if capability == "lora" or "lora" in t or "lora" in n:
+        return "loras"
+    if capability == "upscaler" or "upscale" in n or "esrgan" in n:
+        return "upscale_models"
+    if "vae" in t or "vae" in n:
+        return "vae"
+    return "checkpoints"
+
+
+def fits_badge(file_bytes, ram_bytes):
+    if not ram_bytes:
+        return "unknown"
+    r = file_bytes / float(ram_bytes)
+    if r <= 0.60:
+        return "green"
+    if r <= 0.85:
+        return "orange"
+    return "red"
+
+
+def group_gguf_files(files):
+    """Group split GGUF parts into one downloadable entry; singles pass through."""
+    groups = {}
+    order = []
+    for f in files:
+        m = SPLIT_RE.match(f["path"])
+        key = m.group(1) + ".gguf" if m else f["path"]
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(f)
+    out = []
+    for key in order:
+        fs = sorted(groups[key], key=lambda x: x["path"])
+        label = key if len(fs) == 1 else "%s (%d parts)" % (key, len(fs))
+        out.append({"label": label, "quant": parse_quant(key),
+                    "size": sum(x["size"] for x in fs), "files": fs})
+    return out

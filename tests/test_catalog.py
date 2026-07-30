@@ -81,5 +81,37 @@ class TestCapabilities(unittest.TestCase):
         self.assertEqual(p["sort"], "lastModified")
 
 
+class TestRoutingAndFits(unittest.TestCase):
+    def test_sanitize(self):
+        self.assertEqual(catalog.sanitize_component("meta-llama/Llama:3"), "meta-llama_Llama_3")
+        self.assertEqual(catalog.sanitize_component("  .. "), "untitled")
+
+    def test_comfy_routing(self):
+        self.assertEqual(catalog.comfy_subfolder("lora", [], "style.safetensors"), "loras")
+        self.assertEqual(catalog.comfy_subfolder("", [], "wan_vae.safetensors"), "vae")
+        self.assertEqual(catalog.comfy_subfolder("upscaler", [], "x4-esrgan.safetensors"), "upscale_models")
+        self.assertEqual(catalog.comfy_subfolder("image-gen", [], "flux1-dev.safetensors"), "checkpoints")
+
+    def test_fits(self):
+        gib = 1024 ** 3
+        self.assertEqual(catalog.fits_badge(10 * gib, 32 * gib), "green")
+        self.assertEqual(catalog.fits_badge(22 * gib, 32 * gib), "orange")
+        self.assertEqual(catalog.fits_badge(30 * gib, 32 * gib), "red")
+        self.assertEqual(catalog.fits_badge(10 * gib, 0), "unknown")
+
+    def test_split_grouping(self):
+        files = [
+            {"path": "m-Q4_K_M-00001-of-00002.gguf", "size": 10, "sha256": "a"},
+            {"path": "m-Q4_K_M-00002-of-00002.gguf", "size": 7, "sha256": "b"},
+            {"path": "m-Q8_0.gguf", "size": 30, "sha256": "c"},
+        ]
+        groups = catalog.group_gguf_files(files)
+        self.assertEqual(len(groups), 2)
+        multi = next(g for g in groups if len(g["files"]) == 2)
+        self.assertEqual(multi["size"], 17)
+        self.assertEqual(multi["quant"], "Q4_K_M")
+        self.assertIn("2 parts", multi["label"])
+
+
 if __name__ == "__main__":
     unittest.main()

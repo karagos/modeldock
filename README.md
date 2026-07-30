@@ -16,10 +16,10 @@ Double-click **`start.command`**. Your browser opens at `http://127.0.0.1:8420`.
 
 ## The four tabs
 
-- **Search** — search Hugging Face with filters: type (Chat GGUF / Chat MLX / Image & Video for ComfyUI), company, capability (Vision, Thinking, Agentic, Coding — or Image/Video/LoRA/Upscaler), parameter size (≤4B … 70B+, MoE), and sort. Click a model to see its downloadable versions with exact sizes. The colored dot tells you how each file suits **this Mac's memory**: green = runs comfortably, orange = tight, red = won't fit. Your preferred quantization (Settings) is pre-highlighted.
+- **Search** — search Hugging Face with filters: type (Chat GGUF / Chat MLX / Image & Video for ComfyUI — **select several at once** to see merged results with a format badge per model), company, capability (Vision, Thinking, Agentic, Coding — or Image/Video/LoRA/Upscaler), parameter size (≤4B … 70B+, MoE), and sort. Click a model to see its downloadable versions with exact sizes. The colored dot tells you how each file suits your chosen memory size: green = runs comfortably, orange = tight, red = won't fit. Your preferred quantization (Settings) is pre-highlighted.
 - **Downloads** — progress, speed, time remaining, Pause / Resume / Cancel. Downloads run one at a time; interruptions (sleep, network loss, unplugged drive, quitting the app) lose nothing — resume continues from the exact byte where it stopped.
 - **Library** — everything on the current destination, with sizes, free space, **Reveal in Finder**, and **Delete** (always to the Trash, never permanent).
-- **Settings** — destination, preferred quantization, theme.
+- **Settings** — destination, preferred quantization (Q2 … BF16 and MLX 3/4/6/8-bit), theme, and **Memory (RAM)**: the fits-badge normally uses this Mac's detected memory, but you can pick any size (8 GB – 512 GB) to plan downloads for a different machine — e.g. before buying a new Mac.
 
 ## Where files go
 

@@ -139,6 +139,30 @@ class TestMergeCards(unittest.TestCase):
         self.assertEqual([m["id"] for m in out], ["a/x", "c/z", "b/y"])
 
 
+class TestReadmeExcerpt(unittest.TestCase):
+    MD = ("---\nlicense: apache-2.0\ntags: [gguf]\n---\n"
+          "# Qwen3 14B\n\n"
+          "Qwen3-14B is a **strong** general model with [thinking](https://x.y) mode.\n\n"
+          "```python\nimport nothing\n```\n"
+          "| table | row |\n"
+          "It supports 100+ languages.\n")
+
+    def test_strips_noise_keeps_prose(self):
+        out = catalog.readme_excerpt(self.MD)
+        self.assertIn("Qwen3-14B is a strong general model with thinking mode.", out)
+        self.assertIn("100+ languages", out)
+        self.assertNotIn("license", out)
+        self.assertNotIn("#", out)
+        self.assertNotIn("|", out)
+        self.assertNotIn("import", out)
+
+    def test_limit_and_empty(self):
+        self.assertEqual(catalog.readme_excerpt(""), "")
+        long = catalog.readme_excerpt("word " * 400, limit=50)
+        self.assertLessEqual(len(long), 52)
+        self.assertTrue(long.endswith("…"))
+
+
 class TestCapFamilies(unittest.TestCase):
     def test_membership(self):
         self.assertIn("thinking", catalog.TEXT_CAPS)

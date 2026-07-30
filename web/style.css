@@ -86,8 +86,20 @@ button.ghost {
 }
 .pill.moe { background: var(--accent-soft); color: var(--accent); }
 .pill.gated { background: #cc544922; color: var(--red); }
-#detail { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-top: 16px; }
-#detail h2 { margin: 10px 0 4px; }
+#detail {
+  background: var(--bg2); border: 1px solid var(--accent); border-radius: 14px;
+  padding: 18px 22px; margin: 2px 0 6px;
+}
+.dhead { display: flex; align-items: center; gap: 12px; }
+.dhead h2 { margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.dbadges { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 6px 0 8px; }
+.dbadges .pill { margin-left: 0; }
+.hflink { color: var(--accent); font-size: 13px; margin-left: 10px; text-decoration: none; }
+.hflink:hover { text-decoration: underline; }
+.desc {
+  font-size: 14px; color: var(--text); background: var(--bg3);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; line-height: 1.55;
+}
 .dmeta { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
 .variant {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;

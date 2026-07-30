@@ -83,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
     def _static(self, path):
         rel = path.lstrip("/") or "index.html"
         full = os.path.realpath(os.path.join(WEB, rel))
-        if not full.startswith(os.path.realpath(WEB)) or not os.path.isfile(full):
+        if not full.startswith(os.path.realpath(WEB) + os.sep) or not os.path.isfile(full):
             self.send_error(404)
             return
         with open(full, "rb") as f:
@@ -169,7 +169,10 @@ class Handler(BaseHTTPRequestHandler):
                 or (t == "image" and capability in catalog.IMAGE_CAPS)) else ""
             params = catalog.build_search_params(
                 q=q.get("q", ""), mtype=t, company=q.get("company", ""),
-                capability=cap, sort=sort)
+                capability=cap, sort=sort,
+                # Size/MoE filtering happens after the fetch (HF has no param-count
+                # filter), so pull a deeper page to avoid false "no results".
+                limit=100 if want_bucket else 30)
             cards = []
             for m in hf_api.search_models(params):
                 mid = m.get("id", "")
@@ -224,8 +227,11 @@ class Handler(BaseHTTPRequestHandler):
             v["will_fit_disk"] = bool(free) and v["size"] * 1.05 + 500 * 1024 * 1024 < free
         card = info.get("cardData") or {}
         p = catalog.parse_params(mid)
+        description = "" if info.get("gated") else catalog.readme_excerpt(hf_api.model_readme(mid))
         self._json({
             "id": mid, "company": mid.split("/")[0], "gated": bool(info.get("gated")),
+            "description": description,
+            "hf_url": "https://huggingface.co/" + mid,
             "downloads": info.get("downloads", 0), "likes": info.get("likes", 0),
             "updated": info.get("lastModified", ""), "license": card.get("license") or "—",
             "params": p,

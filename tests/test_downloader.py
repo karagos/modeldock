@@ -98,5 +98,68 @@ class TestDownloader(unittest.TestCase):
             self.assertIn("verification", job["error"])
 
 
+class TestAuditFixes(unittest.TestCase):
+    def test_cancel_removes_files_this_job_completed_but_spares_preexisting(self):
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=range_opener)
+            job = make_job(d)
+            job["files"] = [
+                {"url": "http://x/a.bin", "local_name": "a.bin", "size": 10, "sha256": None},
+                {"url": "http://x/b.bin", "local_name": "b.bin", "size": 10, "sha256": None},
+                {"url": "http://x/c.bin", "local_name": "c.bin", "size": 10, "sha256": None},
+            ]
+            job["state"] = "paused"
+            job["completed"] = ["a.bin"]          # downloaded by THIS job
+            for name in ("a.bin", "c.bin"):       # c.bin pre-existed (not in completed)
+                with open(os.path.join(d, name), "wb") as f:
+                    f.write(b"x" * 10)
+            with open(os.path.join(d, "b.bin.part"), "wb") as f:
+                f.write(b"x" * 5)
+            store.data["queue"].append(job)
+            mgr.cancel("j1")
+            self.assertFalse(os.path.exists(os.path.join(d, "a.bin")))       # cleaned
+            self.assertFalse(os.path.exists(os.path.join(d, "b.bin.part")))  # cleaned
+            self.assertTrue(os.path.exists(os.path.join(d, "c.bin")))        # spared
+
+    def test_http_4xx_fails_immediately_with_clear_message(self):
+        import urllib.error
+
+        def opener_404(req, timeout=0):
+            raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=opener_404)
+            t0 = time.time()
+            mgr.add_job(make_job(d))
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                st = mgr.status()
+                if st and st[0]["state"] == "error":
+                    break
+                time.sleep(0.05)
+            self.assertEqual(mgr.status()[0]["state"], "error")
+            self.assertIn("404", mgr.status()[0]["error"])
+            self.assertLess(time.time() - t0, 3, "4xx must not be retried with backoff")
+
+    def test_size_mismatch_removes_part_so_resume_can_restart(self):
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=range_opener)
+            j = make_job(d)
+            j["files"][0]["size"] = 5000   # server will deliver 10240 bytes
+            j["total_bytes"] = 5000
+            mgr.add_job(j)
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                st = mgr.status()
+                if st and st[0]["state"] == "error":
+                    break
+                time.sleep(0.05)
+            self.assertEqual(mgr.status()[0]["state"], "error")
+            self.assertFalse(os.path.exists(os.path.join(d, "file.bin.part")),
+                             "oversized .part must be removed or Resume loops forever")
+
+
 if __name__ == "__main__":
     unittest.main()

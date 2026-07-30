@@ -51,6 +51,31 @@ class TestHfApi(unittest.TestCase):
         self.assertEqual(hf_api.file_url("org/repo", "a b.gguf"),
                          "https://huggingface.co/org/repo/resolve/main/a%20b.gguf")
 
+    def test_tree_follows_link_pagination(self):
+        class HeaderResponse(io.BytesIO):
+            def __init__(self, data, link=""):
+                super().__init__(data)
+                self.headers = {"Link": link} if link else {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        pages = {
+            "https://huggingface.co/api/models/org/big/tree/main?recursive=true":
+                HeaderResponse(json.dumps([{"type": "file", "path": "a.gguf", "size": 1}]).encode(),
+                               link='<https://huggingface.co/api/models/org/big/tree/main?recursive=true&cursor=x>; rel="next"'),
+            "https://huggingface.co/api/models/org/big/tree/main?recursive=true&cursor=x":
+                HeaderResponse(json.dumps([{"type": "file", "path": "b.gguf", "size": 2}]).encode()),
+        }
+
+        def opener(req, timeout=0):
+            return pages[req.full_url]
+        files = hf_api.model_tree("org/big", opener=opener)
+        self.assertEqual([f["path"] for f in files], ["a.gguf", "b.gguf"])
+
 
 if __name__ == "__main__":
     unittest.main()

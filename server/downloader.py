@@ -74,12 +74,21 @@ class DownloadManager:
         return next((j for j in self.store.data["queue"] if j["id"] == job_id), None)
 
     def _remove(self, job):
+        # Delete .part remnants AND files this job itself completed — a cancelled
+        # multi-part job must never leave a truncated model that looks finished.
+        # Files that pre-existed the job (not in "completed") are spared.
+        completed = set(job.get("completed", []))
         for f in job["files"]:
-            part = os.path.join(job["dest_dir"], f["local_name"] + ".part")
+            final = os.path.join(job["dest_dir"], f["local_name"])
             try:
-                os.remove(part)
+                os.remove(final + ".part")
             except OSError:
                 pass
+            if f["local_name"] in completed:
+                try:
+                    os.remove(final)
+                except OSError:
+                    pass
         if job in self.store.data["queue"]:
             self.store.data["queue"].remove(job)
         self.store.save()
@@ -89,36 +98,43 @@ class DownloadManager:
             self._signals[job_id] = sig
 
     def _ensure_worker(self):
-        if self._worker and self._worker.is_alive():
+        # Callers hold self._lock; _run clears _worker under the same lock.
+        if self._worker is not None and self._worker.is_alive():
             return
         self._worker = threading.Thread(target=self._run, daemon=True)
         self._worker.start()
 
-    def _next_queued(self):
-        with self._lock:
-            return next((j for j in self.store.data["queue"] if j["state"] == "queued"), None)
-
     def _run(self):
-        while True:
-            job = self._next_queued()
-            if job is None:
-                return
-            self._signals.pop(job["id"], None)
-            job["state"] = "active"
-            self.store.save()
-            try:
-                self._download_job(job)
-            except _Interrupted as stop:
-                if stop.kind == "cancel":
-                    with self._lock:
-                        self._remove(job)
-                else:
-                    job["state"] = "paused"
-                    self.store.save()
-            except Exception as e:  # network exhausted, disk gone, etc.
-                job["state"] = "error"
-                job["error"] = str(e)
+        try:
+            while True:
+                with self._lock:
+                    job = next((j for j in self.store.data["queue"]
+                                if j["state"] == "queued"), None)
+                    if job is None:
+                        # Atomic with the empty-queue observation: any add_job()
+                        # after this sees _worker None and spawns a fresh thread.
+                        self._worker = None
+                        return
+                    self._signals.pop(job["id"], None)
+                    job["state"] = "active"
                 self.store.save()
+                try:
+                    self._download_job(job)
+                except _Interrupted as stop:
+                    if stop.kind == "cancel":
+                        with self._lock:
+                            self._remove(job)
+                    else:
+                        job["state"] = "paused"
+                        self.store.save()
+                except Exception as e:  # network exhausted, disk gone, etc.
+                    job["state"] = "error"
+                    job["error"] = str(e)
+                    self.store.save()
+        finally:
+            with self._lock:
+                if self._worker is threading.current_thread():
+                    self._worker = None
 
     def _download_job(self, job):
         os.makedirs(job["dest_dir"], exist_ok=True)
@@ -132,6 +148,7 @@ class DownloadManager:
             self._download_file(job, f, final, done_bytes)
             self._verify(final + ".part", f)
             os.replace(final + ".part", final)
+            job.setdefault("completed", []).append(f["local_name"])
             done_bytes += f["size"]
             job["downloaded_bytes"] = done_bytes
             self.store.save()
@@ -167,6 +184,16 @@ class DownloadManager:
                 attempts += 1  # server closed early — retry/resume
             except _Interrupted:
                 raise
+            except urllib.error.HTTPError as e:
+                if 400 <= e.code < 500:
+                    # Permanent: file removed, gated, bad range. Retrying is pointless.
+                    raise RuntimeError(
+                        "Download refused (HTTP %d) — the file may have been removed "
+                        "or requires a Hugging Face account." % e.code) from e
+                attempts += 1
+                if attempts > RETRIES:
+                    raise RuntimeError("Network failed after %d retries: %s" % (RETRIES, e)) from e
+                time.sleep(min(2 ** attempts, 30))
             except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as e:
                 if isinstance(e, OSError) and not os.path.isdir(job["dest_dir"]):
                     raise RuntimeError("Destination drive is not available") from e
@@ -192,7 +219,11 @@ class DownloadManager:
     def _verify(self, part_path, f):
         actual = os.path.getsize(part_path)
         if actual != f["size"]:
-            raise RuntimeError("verification failed: size %d != expected %d" % (actual, f["size"]))
+            # Remove the bad .part or Resume would see pos >= size and loop forever.
+            os.remove(part_path)
+            raise RuntimeError("verification failed: size %d != expected %d "
+                               "(bad download removed — Resume restarts this file)"
+                               % (actual, f["size"]))
         if f.get("sha256") and f["size"] <= SHA_VERIFY_MAX:
             if sha256_file(part_path) != f["sha256"]:
                 os.remove(part_path)

@@ -175,7 +175,9 @@ async function runSearch() {
   const f = state.filters;
   const qs = new URLSearchParams({ q: $("#q").value.trim(), type: f.type,
     company: f.company, capability: f.capability, size: f.size, sort: f.sort });
-  $("#detail").hidden = true;
+  const dpane = $("#detail");
+  dpane.hidden = true; state.detailFor = null;
+  $("#results").after(dpane);   // rescue it before the grid is wiped
   $("#results").replaceChildren(el("div", "msg", "Searching Hugging Face…"));
   try {
     const data = await api("/api/search?" + qs);
@@ -205,30 +207,51 @@ function renderResults() {
     const meta = el("span", "meta",
       m.downloads.toLocaleString() + " downloads · " + m.likes + " ♥ · " + (m.updated || "").slice(0, 10));
     c.append(name, meta);
-    c.addEventListener("click", () => openDetail(m));
+    c.addEventListener("click", () => openDetail(m, c));
     box.append(c);
   });
 }
 
-async function openDetail(card) {
+async function openDetail(card, cardEl) {
   const d = $("#detail");
+  // Clicking the open model again collapses it.
+  if (!d.hidden && state.detailFor === card.id) {
+    d.hidden = true; state.detailFor = null;
+    return;
+  }
+  state.detailFor = card.id;
+  const token = (state.detailToken = (state.detailToken || 0) + 1);
+  if (cardEl) cardEl.after(d);          // expand right under the clicked model
   d.hidden = false;
   d.replaceChildren(el("div", "msg", "Loading " + card.id + "…"));
-  d.scrollIntoView({ behavior: "smooth" });
   try {
     const qs = new URLSearchParams({ id: card.id, type: card.mtype || state.filters.type.split(",")[0],
       capability: state.filters.capability });
     const m = await api("/api/model?" + qs);
+    if (token !== state.detailToken) return;   // a newer click superseded this one
     m.mtype = card.mtype || state.filters.type.split(",")[0];
     d.replaceChildren();
-    const back = el("button", "ghost", "← back to results");
-    back.addEventListener("click", () => { d.hidden = true; });
-    d.append(back, el("h2", "", m.id));
+    const head = el("div", "dhead");
+    head.append(el("h2", "", m.id));
+    const close = el("button", "ghost", "Close ✕");
+    close.addEventListener("click", () => { d.hidden = true; state.detailFor = null; });
+    head.append(close);
+    d.append(head);
+    const badges = el("div", "dbadges");
+    if (m.params && m.params.moe) badges.append(el("span", "pill moe", "MoE"));
+    (m.caps || []).forEach((cap) => CAP_LABELS[cap] && badges.append(el("span", "pill", CAP_LABELS[cap])));
+    if (m.gated) badges.append(el("span", "pill gated", "requires HF account"));
+    const link = el("a", "hflink", "Open on Hugging Face ↗");
+    link.href = m.hf_url || "https://huggingface.co/" + m.id;
+    link.target = "_blank"; link.rel = "noopener";
+    badges.append(link);
+    d.append(badges);
     let metaTxt = m.downloads.toLocaleString() + " downloads · license: " + m.license +
       " · updated " + (m.updated || "").slice(0, 10);
     if (m.params) metaTxt += " · " + m.params.total_b + "B parameters";
     d.append(el("div", "dmeta", metaTxt));
     if (m.moe_note) d.append(el("div", "dmeta", "Mixture-of-Experts: " + m.moe_note));
+    if (m.description) d.append(el("p", "desc", m.description));
     if (m.gated) {
       d.append(el("div", "msg",
         "This model requires a free Hugging Face account and license acceptance on huggingface.co. " +

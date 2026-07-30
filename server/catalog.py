@@ -115,8 +115,8 @@ CAP_SEARCH_EXTRA = {"thinking": "reasoning", "coding": "coder", "agentic": "tool
 CAP_PIPELINE = {"vision": "image-text-to-text", "image-gen": "text-to-image", "video-gen": "text-to-video"}
 
 
-def build_search_params(q="", mtype="gguf", company="", capability="", sort="downloads"):
-    p = {"limit": "30", "sort": SORT_MAP.get(sort, "downloads"), "direction": "-1", "full": "true"}
+def build_search_params(q="", mtype="gguf", company="", capability="", sort="downloads", limit=30):
+    p = {"limit": str(limit), "sort": SORT_MAP.get(sort, "downloads"), "direction": "-1", "full": "true"}
     search_terms = [q] if q else []
     if capability in CAP_SEARCH_EXTRA:
         search_terms.append(CAP_SEARCH_EXTRA[capability])
@@ -138,6 +138,26 @@ def build_search_params(q="", mtype="gguf", company="", capability="", sort="dow
     if search_terms:
         p["search"] = " ".join(search_terms)
     return p
+
+
+def readme_excerpt(markdown, limit=420):
+    """First plain-language paragraph(s) of a model card, markdown noise stripped."""
+    if not markdown:
+        return ""
+    text = re.sub(r"\A---\n.*?\n---\n", "", markdown, flags=re.S)  # YAML frontmatter
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)             # code blocks
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)              # images
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)           # links -> label
+    text = re.sub(r"<[^>]+>", " ", text)                           # html tags
+    lines = [l.strip() for l in text.splitlines()]
+    prose = [l for l in lines
+             if l and not l.startswith(("#", "|", ">", "-", "*", "="))]
+    out = " ".join(prose)
+    out = re.sub(r"[*_`]", "", out)
+    out = re.sub(r"\s+", " ", out).strip()
+    if len(out) > limit:
+        out = out[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
+    return out
 
 
 SPLIT_RE = re.compile(r"^(.*)-(\d{5})-of-(\d{5})\.gguf$", re.I)

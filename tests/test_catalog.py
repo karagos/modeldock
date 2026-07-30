@@ -54,5 +54,32 @@ class TestParams(unittest.TestCase):
         self.assertIsNone(catalog.size_bucket(None))
 
 
+class TestCapabilities(unittest.TestCase):
+    def test_detect(self):
+        self.assertIn("vision", catalog.detect_capabilities("org/Qwen2.5-VL-7B", ["image-text-to-text"]))
+        self.assertIn("thinking", catalog.detect_capabilities("org/DeepSeek-R1-Distill", []))
+        self.assertIn("thinking", catalog.detect_capabilities("org/QwQ-32B", []))
+        self.assertIn("coding", catalog.detect_capabilities("org/Qwen2.5-Coder-14B", []))
+        self.assertIn("agentic", catalog.detect_capabilities("org/x", ["function-calling"]))
+
+    def test_search_params_text(self):
+        p = catalog.build_search_params(q="qwen", mtype="gguf", company="Qwen",
+                                        capability="thinking", sort="downloads")
+        self.assertEqual(p["filter"], "gguf")
+        self.assertEqual(p["author"], "Qwen")
+        self.assertIn("reasoning", p["search"])
+        self.assertEqual(p["sort"], "downloads")
+
+    def test_search_params_image(self):
+        p = catalog.build_search_params(q="", mtype="image", company="", capability="video-gen", sort="trending")
+        self.assertEqual(p["pipeline_tag"], "text-to-video")
+        self.assertEqual(p["sort"], "trendingScore")
+
+    def test_search_params_mlx(self):
+        p = catalog.build_search_params(q="llama", mtype="mlx", company="", capability="", sort="newest")
+        self.assertEqual(p["filter"], "mlx")
+        self.assertEqual(p["sort"], "lastModified")
+
+
 if __name__ == "__main__":
     unittest.main()

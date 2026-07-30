@@ -54,3 +54,60 @@ def size_bucket(total_b):
         if lo <= total_b < hi:
             return label
     return None
+
+
+CAP_NAME_HINTS = {
+    "vision": ("-vl", "vl-", "vision", "llava", "-omni"),
+    "thinking": ("r1", "qwq", "think", "reason"),
+    "coding": ("coder", "-code", "code-", "codestral", "starcoder"),
+    "agentic": ("agent", "tool"),
+}
+CAP_TAG_HINTS = {
+    "vision": ("image-text-to-text", "vision", "multimodal"),
+    "thinking": ("reasoning",),
+    "coding": ("code",),
+    "agentic": ("function-calling", "tool-use", "agent"),
+}
+
+
+def detect_capabilities(model_id, tags):
+    tags_low = {t.lower() for t in (tags or [])}
+    name = model_id.lower()
+    caps = set()
+    for cap, hints in CAP_NAME_HINTS.items():
+        if any(h in name for h in hints):
+            caps.add(cap)
+    for cap, hints in CAP_TAG_HINTS.items():
+        if tags_low & set(hints):
+            caps.add(cap)
+    return caps
+
+
+SORT_MAP = {"downloads": "downloads", "trending": "trendingScore", "newest": "lastModified"}
+CAP_SEARCH_EXTRA = {"thinking": "reasoning", "coding": "coder", "agentic": "tool", "upscaler": "upscale"}
+CAP_PIPELINE = {"vision": "image-text-to-text", "image-gen": "text-to-image", "video-gen": "text-to-video"}
+
+
+def build_search_params(q="", mtype="gguf", company="", capability="", sort="downloads"):
+    p = {"limit": "30", "sort": SORT_MAP.get(sort, "downloads"), "direction": "-1", "full": "true"}
+    search_terms = [q] if q else []
+    if capability in CAP_SEARCH_EXTRA:
+        search_terms.append(CAP_SEARCH_EXTRA[capability])
+    if mtype == "gguf":
+        p["filter"] = "gguf"
+    elif mtype == "mlx":
+        p["filter"] = "mlx"
+    elif mtype == "image":
+        p["pipeline_tag"] = CAP_PIPELINE.get(capability, "text-to-image")
+        if capability == "lora":
+            p["filter"] = "lora"
+            p.pop("pipeline_tag")
+        if capability == "upscaler":
+            p.pop("pipeline_tag", None)
+    if capability in CAP_PIPELINE and mtype != "image":
+        p["pipeline_tag"] = CAP_PIPELINE[capability]
+    if company:
+        p["author"] = company
+    if search_terms:
+        p["search"] = " ".join(search_terms)
+    return p

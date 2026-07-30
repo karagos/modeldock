@@ -127,6 +127,24 @@
         <option value="512">512 GB</option>
       </select>
     </div>
+    <div class="setting">
+      <h3>What the colors mean (in a model's file list)</h3>
+      <div class="legend"><span class="fit green"></span>
+        <p><strong>Green — runs comfortably.</strong> The file is at most ~60% of the memory
+        chosen above, leaving room for long conversations and your other apps.</p></div>
+      <div class="legend"><span class="fit orange"></span>
+        <p><strong>Orange — tight.</strong> 60–85% of memory: it will load, but expect it to be
+        slow; close other heavy apps first.</p></div>
+      <div class="legend"><span class="fit red"></span>
+        <p><strong>Red — won't run.</strong> Bigger than ~85% of memory — realistically this
+        machine can't hold it. Pick a smaller quantization (e.g. Q4 instead of Q8).</p></div>
+      <div class="legend"><span class="legend-hl"></span>
+        <p><strong>Highlighted row — your preferred quantization.</strong> Files matching the
+        quantization chosen above get an orange border so the recommended pick jumps out.</p></div>
+      <p class="hint">The dots always follow the Memory setting above — set it to a different
+      size to preview what a future Mac could run. On Apple Silicon, memory is shared between
+      processor and graphics, so file size versus memory honestly predicts how a model runs.</p>
+    </div>
     <div class="setting"><h3>About</h3>
       <p class="hint">ModelDock v1.0 — downloads AI models from Hugging Face to any drive.
       Zero dependencies. Models stay in plain folders you own. <br>Mac RAM detected: <span id="ramInfo">—</span></p>

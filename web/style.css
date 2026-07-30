@@ -140,6 +140,13 @@ button.ghost {
   border-radius: 8px; padding: 8px 12px; font-size: 14px; min-width: 260px;
 }
 .pill.fmt { background: var(--accent-soft); color: var(--accent); }
+.legend { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.legend .fit { margin-top: 5px; }
+.legend p { font-size: 14px; }
+.legend-hl {
+  width: 26px; height: 14px; border: 1px solid var(--accent); border-radius: 5px;
+  background: var(--accent-soft); flex-shrink: 0; margin-top: 3px;
+}
 .msg { color: var(--muted); padding: 30px 0; text-align: center; }
 #toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

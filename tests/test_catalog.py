@@ -28,5 +28,31 @@ class TestQuant(unittest.TestCase):
         self.assertIsNone(catalog.quant_family(None))
 
 
+class TestParams(unittest.TestCase):
+    def test_plain(self):
+        self.assertEqual(catalog.parse_params("Meta-Llama-3.1-8B-Instruct"),
+                         {"total_b": 8.0, "active_b": None, "moe": False})
+        self.assertEqual(catalog.parse_params("Qwen3-0.6B")["total_b"], 0.6)
+
+    def test_moe_a_form(self):
+        p = catalog.parse_params("Qwen3-30B-A3B-GGUF")
+        self.assertEqual((p["total_b"], p["active_b"], p["moe"]), (30.0, 3.0, True))
+
+    def test_moe_x_form(self):
+        p = catalog.parse_params("Mixtral-8x7B-v0.1")
+        self.assertEqual((p["total_b"], p["active_b"], p["moe"]), (56.0, 7.0, True))
+
+    def test_none(self):
+        self.assertIsNone(catalog.parse_params("Phi-model"))
+
+    def test_buckets(self):
+        self.assertEqual(catalog.size_bucket(0.6), "<=4B")
+        self.assertEqual(catalog.size_bucket(8), "7-9B")
+        self.assertEqual(catalog.size_bucket(14), "12-15B")
+        self.assertEqual(catalog.size_bucket(30), "20-35B")
+        self.assertEqual(catalog.size_bucket(70), "70B+")
+        self.assertIsNone(catalog.size_bucket(None))
+
+
 if __name__ == "__main__":
     unittest.main()

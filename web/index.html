@@ -1,1 +1,121 @@
-<!doctype html><meta charset="utf-8"><title>ModelDock</title><p>ModelDock booting…</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ModelDock</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+<header>
+  <div class="brand"><span class="logo">▣</span> ModelDock <span class="by">by CAIO</span></div>
+  <div class="dest" id="destPill" title="Current destination — change in Settings">
+    <span id="destPath">No destination</span>
+    <span id="destFree"></span>
+  </div>
+  <button id="themeBtn" title="Toggle theme">◐</button>
+</header>
+<nav>
+  <button class="tab active" data-tab="search">Search</button>
+  <button class="tab" data-tab="downloads">Downloads <span id="dlBadge" class="badge" hidden></span></button>
+  <button class="tab" data-tab="library">Library</button>
+  <button class="tab" data-tab="settings">Settings</button>
+</nav>
+<main>
+  <section id="tab-search" class="pane active">
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="Search models — e.g. qwen 3, flux, whisper…">
+      <button id="goBtn" class="primary">Search</button>
+    </div>
+    <div class="filters" id="filters">
+      <div class="chiprow" data-group="type">
+        <span class="lbl">Type</span>
+        <button class="chip active" data-v="gguf">Chat · GGUF</button>
+        <button class="chip" data-v="mlx">Chat · MLX</button>
+        <button class="chip" data-v="image">Image &amp; Video (ComfyUI)</button>
+      </div>
+      <div class="chiprow" data-group="company">
+        <span class="lbl">Company</span>
+        <button class="chip" data-v="Qwen">Qwen</button>
+        <button class="chip" data-v="meta-llama">Meta</button>
+        <button class="chip" data-v="google">Google</button>
+        <button class="chip" data-v="mistralai">Mistral</button>
+        <button class="chip" data-v="deepseek-ai">DeepSeek</button>
+        <button class="chip" data-v="microsoft">Microsoft</button>
+        <button class="chip" data-v="openai">OpenAI</button>
+        <button class="chip" data-v="unsloth">Unsloth</button>
+        <input id="companyFree" placeholder="other…">
+      </div>
+      <div class="chiprow" data-group="capability" id="capText">
+        <span class="lbl">Capability</span>
+        <button class="chip" data-v="vision">Vision</button>
+        <button class="chip" data-v="thinking">Thinking</button>
+        <button class="chip" data-v="agentic">Agentic</button>
+        <button class="chip" data-v="coding">Coding</button>
+      </div>
+      <div class="chiprow" data-group="capability" id="capImage" hidden>
+        <span class="lbl">Capability</span>
+        <button class="chip" data-v="image-gen">Image generation</button>
+        <button class="chip" data-v="video-gen">Video generation</button>
+        <button class="chip" data-v="lora">LoRA</button>
+        <button class="chip" data-v="upscaler">Upscaler</button>
+      </div>
+      <div class="chiprow" data-group="size" id="sizeRow">
+        <span class="lbl">Size</span>
+        <button class="chip" data-v="<=4B">≤4B</button>
+        <button class="chip" data-v="7-9B">7–9B</button>
+        <button class="chip" data-v="12-15B">12–15B</button>
+        <button class="chip" data-v="20-35B">20–35B</button>
+        <button class="chip" data-v="70B+">70B+</button>
+        <button class="chip" data-v="moe">MoE</button>
+      </div>
+      <div class="chiprow" data-group="sort">
+        <span class="lbl">Sort</span>
+        <button class="chip active" data-v="downloads">Most downloaded</button>
+        <button class="chip" data-v="trending">Trending</button>
+        <button class="chip" data-v="newest">Newest</button>
+      </div>
+    </div>
+    <div id="results" class="cards"></div>
+    <div id="detail" hidden></div>
+  </section>
+
+  <section id="tab-downloads" class="pane">
+    <div class="pane-head"><h2>Downloads</h2><button id="clearDone" class="ghost">Clear finished</button></div>
+    <div id="dlList"></div>
+  </section>
+
+  <section id="tab-library" class="pane">
+    <div class="pane-head"><h2>Library</h2><div id="libStats"></div></div>
+    <div id="libList"></div>
+  </section>
+
+  <section id="tab-settings" class="pane">
+    <h2>Settings</h2>
+    <div class="setting">
+      <h3>Destination</h3>
+      <p class="hint">Where downloaded models are stored. Point this at your external SSD.</p>
+      <div class="row"><code id="setDest">—</code><button id="pickBtn" class="primary">Choose folder…</button></div>
+      <div id="recents"></div>
+    </div>
+    <div class="setting">
+      <h3>Preferred quantization</h3>
+      <p class="hint">Pre-highlighted in every model. Q4 = best size/quality balance for most Macs.</p>
+      <div class="chiprow" id="quantPref">
+        <button class="chip" data-v="Q4">Q4</button><button class="chip" data-v="Q5">Q5</button>
+        <button class="chip" data-v="Q6">Q6</button><button class="chip" data-v="Q8">Q8</button>
+        <button class="chip" data-v="F16">F16</button>
+        <button class="chip" data-v="MLX-4BIT">MLX 4-bit</button>
+        <button class="chip" data-v="MLX-8BIT">MLX 8-bit</button>
+      </div>
+    </div>
+    <div class="setting"><h3>About</h3>
+      <p class="hint">ModelDock v1.0 — downloads AI models from Hugging Face to any drive.
+      Zero dependencies. Models stay in plain folders you own. <br>Mac RAM detected: <span id="ramInfo">—</span></p>
+    </div>
+  </section>
+</main>
+<div id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

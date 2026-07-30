@@ -11,6 +11,7 @@
   --muted: #6e6d66; --line: #e3e1d9;
 }
 * { box-sizing: border-box; margin: 0; }
+[hidden] { display: none !important; }
 body {
   font: 15px/1.5 -apple-system, "SF Pro Text", Helvetica, Arial, sans-serif;
   background: var(--bg); color: var(--text);

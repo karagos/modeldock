@@ -60,7 +60,7 @@ async function refreshSystem() {
     state.system = await api("/api/system");
     const pill = $("#destPill");
     if (!state.system.destination) {
-      $("#destPath").textContent = "No destination — choose in Settings";
+      $("#destPath").textContent = "No destination: choose in Settings";
       $("#destFree").textContent = ""; pill.classList.add("warn");
     } else if (!state.system.connected) {
       $("#destPath").textContent = state.system.destination;
@@ -72,7 +72,7 @@ async function refreshSystem() {
     }
     const gib = (n) => Math.round(n / 1073741824) + " GB";  // RAM is marketed in binary GB
     const src = state.system.ram_source === "manual"
-      ? " (manual — this Mac has " + gib(state.system.ram_detected) + ")"
+      ? " (manual, this Mac has " + gib(state.system.ram_detected) + ")"
       : " (this Mac, detected)";
     $("#ramInfo").textContent = gib(state.system.ram) + src;
   } catch (e) { /* server briefly busy — retried on next tick */ }
@@ -82,7 +82,7 @@ async function refreshSystem() {
 async function loadSettings() {
   state.settings = await api("/api/settings");
   document.body.dataset.theme = state.settings.theme || "dark";
-  $("#setDest").textContent = state.settings.destination || "— none chosen —";
+  $("#setDest").textContent = state.settings.destination || "none chosen";
   const rec = $("#recents"); rec.replaceChildren();
   (state.settings.recent_destinations || []).forEach((p) => {
     if (p === state.settings.destination) return;
@@ -192,7 +192,7 @@ async function runSearch() {
 function renderResults() {
   const box = $("#results"); box.replaceChildren();
   if (!state.results.length) {
-    box.append(el("div", "msg", "No models found — try fewer filters or another search term."));
+    box.append(el("div", "msg", "No models found. Try fewer filters or another search term."));
     return;
   }
   const FMT = { gguf: "GGUF", mlx: "MLX", image: "IMG" };
@@ -259,7 +259,7 @@ async function openDetail(card, cardEl) {
     if (m.gated) {
       d.append(el("div", "msg",
         "This model requires a free Hugging Face account and license acceptance on huggingface.co. " +
-        "ModelDock v1 supports open models only — pick a non-gated alternative."));
+        "ModelDock v1 supports open models only. Pick a non-gated alternative."));
       return;
     }
     if (!m.variants.length) {
@@ -278,7 +278,7 @@ async function openDetail(card, cardEl) {
       const row = el("div", "variant");
       if (prefFam && famOf(v.quant) === prefFam) row.classList.add("preferred");
       const fit = el("span", "fit " + v.fits);
-      fit.title = { green: "Runs comfortably on this Mac", orange: "Tight — will be slow",
+      fit.title = { green: "Runs comfortably on this Mac", orange: "Tight, will be slow",
         red: "Won't fit in this Mac's memory", unknown: "RAM unknown" }[v.fits];
       row.append(fit);
       row.append(el("span", "vname", v.label + (v.subfolder ? "  → comfyui/" + v.subfolder : "")));
@@ -309,7 +309,7 @@ function renderDownloads(jobs) {
   const active = jobs.filter((j) => j.state === "active" || j.state === "queued").length;
   const badge = $("#dlBadge");
   badge.hidden = !active; badge.textContent = active;
-  if (!jobs.length) { box.append(el("div", "msg", "No downloads yet — find a model in Search.")); return; }
+  if (!jobs.length) { box.append(el("div", "msg", "No downloads yet. Find a model in Search.")); return; }
   jobs.forEach((j) => {
     const item = el("div", "dl-item");
     const top = el("div", "dl-top");
@@ -393,7 +393,7 @@ async function loadLibrary() {
         const it = el("div", "lib-item");
         const nm = el("span", "", m.company + " / " + m.model);
         if (m.incomplete) nm.append(el("span", "pill gated", "incomplete"));
-        it.append(nm, el("span", "meta", m.format + " · " + (m.quants.join(", ") || "—") +
+        it.append(nm, el("span", "meta", m.format + " · " + (m.quants.join(", ") || "n/a") +
           " · " + fmtBytes(m.size) + " · " + new Date(m.mtime * 1000).toLocaleDateString()));
         it.append(...mkActions(m.path));
         g.append(it);

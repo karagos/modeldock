@@ -188,7 +188,7 @@ class DownloadManager:
                 if 400 <= e.code < 500:
                     # Permanent: file removed, gated, bad range. Retrying is pointless.
                     raise RuntimeError(
-                        "Download refused (HTTP %d) — the file may have been removed "
+                        "Download refused (HTTP %d). The file may have been removed "
                         "or requires a Hugging Face account." % e.code) from e
                 attempts += 1
                 if attempts > RETRIES:
@@ -211,7 +211,7 @@ class DownloadManager:
         try:
             st = os.statvfs(job["dest_dir"])
             if st.f_bavail * st.f_frsize < MIN_FREE:
-                job["error"] = "Destination drive is almost full — download paused."
+                job["error"] = "Destination drive is almost full. Download paused."
                 raise _Interrupted("pause")
         except OSError:
             raise RuntimeError("Destination drive is not available")
@@ -222,7 +222,7 @@ class DownloadManager:
             # Remove the bad .part or Resume would see pos >= size and loop forever.
             os.remove(part_path)
             raise RuntimeError("verification failed: size %d != expected %d "
-                               "(bad download removed — Resume restarts this file)"
+                               "(bad download removed; Resume restarts this file)"
                                % (actual, f["size"]))
         if f.get("sha256") and f["size"] <= SHA_VERIFY_MAX:
             if sha256_file(part_path) != f["sha256"]:

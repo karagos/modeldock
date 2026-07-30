@@ -125,7 +125,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._static(route)
         except urllib.error.URLError as e:
-            self._json({"error": "Hugging Face is unreachable — check your internet. (%s)"
+            self._json({"error": "Hugging Face is unreachable. Check your internet. (%s)"
                         % getattr(e, "reason", e)}, 502)
         except Exception as e:
             self._json({"error": str(e)}, 500)
@@ -150,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_error(404)
         except urllib.error.URLError as e:
-            self._json({"error": "Hugging Face is unreachable — check your internet. (%s)"
+            self._json({"error": "Hugging Face is unreachable. Check your internet. (%s)"
                         % getattr(e, "reason", e)}, 502)
         except Exception as e:
             self._json({"error": str(e)}, 500)
@@ -243,9 +243,9 @@ class Handler(BaseHTTPRequestHandler):
             "description": description,
             "hf_url": "https://huggingface.co/" + mid,
             "downloads": info.get("downloads", 0), "likes": info.get("likes", 0),
-            "updated": info.get("lastModified", ""), "license": card.get("license") or "—",
+            "updated": info.get("lastModified", ""), "license": card.get("license") or "unknown",
             "params": p,
-            "moe_note": ("%.0fB total, %.0fB active — runs like a much smaller model"
+            "moe_note": ("%.0fB total, %.0fB active. Runs like a much smaller model"
                          % (p["total_b"], p["active_b"]))
                         if p and p["moe"] and p["active_b"] else None,
             "caps": sorted(catalog.detect_capabilities(mid, info.get("tags", []))),
@@ -254,7 +254,7 @@ class Handler(BaseHTTPRequestHandler):
     def _api_download(self, body):
         d = dest()
         if not d or not os.path.isdir(d):
-            self._json({"error": "No destination folder — choose one in Settings first."}, 400)
+            self._json({"error": "No destination folder. Choose one in Settings first."}, 400)
             return
         total = sum(f["size"] for f in body["files"])
         free = library.disk_stats(d)["free"]
@@ -273,7 +273,7 @@ class Handler(BaseHTTPRequestHandler):
             dest_dir = os.path.join(d, "Models", catalog.sanitize_component(company),
                                     catalog.sanitize_component(model))
         job = {"id": make_job_id(), "model_id": mid,
-               "label": "%s — %s" % (mid, body.get("variant_label", "")),
+               "label": "%s · %s" % (mid, body.get("variant_label", "")),
                "dest_dir": dest_dir, "state": "queued", "downloaded_bytes": 0, "error": "",
                "total_bytes": total,
                "files": [{"url": hf_api.file_url(mid, f["path"]),
@@ -352,7 +352,7 @@ def main():
     probe = socket.socket()
     if probe.connect_ex((HOST, PORT)) == 0:  # already running
         probe.close()
-        print("ModelDock is already running — opening browser.")
+        print("ModelDock is already running. Opening browser.")
         if want_browser:
             subprocess.run(["open", url])
         return
@@ -360,7 +360,7 @@ def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     if want_browser:
         threading.Timer(0.6, lambda: subprocess.run(["open", url])).start()
-    print("ModelDock running at %s — close this window to stop." % url)
+    print("ModelDock running at %s. Close this window to stop." % url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

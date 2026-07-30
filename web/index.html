@@ -7,9 +7,10 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="dark">
+<div class="topbar">
 <header>
   <div class="brand"><span class="logo">▣</span> ModelDock <span class="by">by CAIO Group</span></div>
-  <div class="dest" id="destPill" title="Current destination — change in Settings">
+  <div class="dest" id="destPill" title="Current destination. Change in Settings">
     <span id="destPath">No destination</span>
     <span id="destFree"></span>
   </div>
@@ -21,10 +22,11 @@
   <button class="tab" data-tab="library">Library</button>
   <button class="tab" data-tab="settings">Settings</button>
 </nav>
+</div>
 <main>
   <section id="tab-search" class="pane active">
     <div class="searchbar">
-      <input id="q" type="search" placeholder="Search models — e.g. qwen 3, flux, whisper…">
+      <input id="q" type="search" placeholder="Search models: qwen 3, flux, whisper…">
       <button id="goBtn" class="primary">Search</button>
     </div>
     <div class="filters" id="filters">
@@ -95,7 +97,7 @@
     <div class="setting">
       <h3>Destination</h3>
       <p class="hint">Where downloaded models are stored. Point this at your external SSD.</p>
-      <div class="row"><code id="setDest">—</code><button id="pickBtn" class="primary">Choose folder…</button></div>
+      <div class="row"><code id="setDest">not set</code><button id="pickBtn" class="primary">Choose folder…</button></div>
       <div id="recents"></div>
     </div>
     <div class="setting">
@@ -117,7 +119,7 @@
       <p class="hint">The green/orange/red dots compare each model file to this amount of memory.
       Leave on Auto for this Mac, or pick a size to plan for a different machine.</p>
       <select id="ramSel">
-        <option value="0">Auto — use this Mac's memory</option>
+        <option value="0">Auto: use this Mac's memory</option>
         <option value="8">8 GB</option><option value="16">16 GB</option>
         <option value="18">18 GB</option><option value="24">24 GB</option>
         <option value="32">32 GB</option><option value="36">36 GB</option>
@@ -130,25 +132,25 @@
     <div class="setting">
       <h3>What the colors mean (in a model's file list)</h3>
       <div class="legend"><span class="fit green"></span>
-        <p><strong>Green — runs comfortably.</strong> The file is at most ~60% of the memory
+        <p><strong>Green: runs comfortably.</strong> The file is at most ~60% of the memory
         chosen above, leaving room for long conversations and your other apps.</p></div>
       <div class="legend"><span class="fit orange"></span>
-        <p><strong>Orange — tight.</strong> 60–85% of memory: it will load, but expect it to be
+        <p><strong>Orange: tight.</strong> 60–85% of memory: it will load, but expect it to be
         slow; close other heavy apps first.</p></div>
       <div class="legend"><span class="fit red"></span>
-        <p><strong>Red — won't run.</strong> Bigger than ~85% of memory — realistically this
+        <p><strong>Red: won't run.</strong> Bigger than ~85% of memory. Realistically this
         machine can't hold it. Pick a smaller quantization (e.g. Q4 instead of Q8).</p></div>
       <div class="legend"><span class="legend-hl"></span>
-        <p><strong>Highlighted row — your preferred quantization.</strong> Files matching the
+        <p><strong>Highlighted row: your preferred quantization.</strong> Files matching the
         quantization chosen above get an orange border so the recommended pick jumps out.</p></div>
-      <p class="hint">The dots always follow the Memory setting above — set it to a different
+      <p class="hint">The dots always follow the Memory setting above. Set it to a different
       size to preview what a future Mac could run. On Apple Silicon, memory is shared between
       processor and graphics, so file size versus memory honestly predicts how a model runs.</p>
     </div>
     <div class="setting"><h3>About</h3>
-      <p class="hint">ModelDock — downloads AI models from Hugging Face to any drive.
-      Zero dependencies. Models stay in plain folders you own. <br>Mac RAM detected: <span id="ramInfo">—</span></p>
-      <p class="hint">Created by <strong>Stefanos Karagos</strong> of <strong>CAIO Group</strong> —
+      <p class="hint">ModelDock downloads AI models from Hugging Face to any drive.
+      Zero dependencies. Models stay in plain folders you own. <br>Mac RAM detected: <span id="ramInfo">…</span></p>
+      <p class="hint">Created by <strong>Stefanos Karagos</strong> of <strong>CAIO Group</strong> ·
       <a class="hflink" href="https://wearecaio.com" target="_blank" rel="noopener">wearecaio.com</a></p>
     </div>
   </section>

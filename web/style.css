@@ -16,10 +16,10 @@ body {
   font: 15px/1.5 -apple-system, "SF Pro Text", Helvetica, Arial, sans-serif;
   background: var(--bg); color: var(--text);
 }
+.topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
 header {
   display: flex; align-items: center; gap: 16px; padding: 14px 22px;
   border-bottom: 1px solid var(--line); background: var(--bg2);
-  position: sticky; top: 0; z-index: 5;
 }
 .brand { font-weight: 700; font-size: 18px; }
 .logo { color: var(--accent); }

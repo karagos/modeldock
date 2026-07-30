@@ -284,7 +284,10 @@ async function openDetail(card, cardEl) {
       row.append(el("span", "vname", v.label + (v.subfolder ? "  → comfyui/" + v.subfolder : "")));
       row.append(el("span", "vsize", fmtBytes(v.size)));
       const btn = el("button", "primary", "Download");
-      if (!v.will_fit_disk) { btn.disabled = true; btn.textContent = "Won't fit on drive"; }
+      if (v.already) {
+        btn.disabled = true; btn.textContent = "In library ✓";
+        btn.title = "Already downloaded to this destination. Delete it in Library to re-download.";
+      } else if (!v.will_fit_disk) { btn.disabled = true; btn.textContent = "Won't fit on drive"; }
       btn.addEventListener("click", async () => {
         try {
           await post("/api/download", { model_id: m.id, variant_label: v.label,

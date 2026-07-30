@@ -59,6 +59,25 @@ def make_job_id():
     return "job-%d" % int(time.time() * 1000)
 
 
+def variant_dest_dir(d, mid, mtype, capability, first_path):
+    """The exact folder a download of this variant would land in."""
+    company, _, model = mid.partition("/")
+    if mtype == "image":
+        sub = catalog.comfy_subfolder(capability, [], first_path)
+        return os.path.join(d, "Models", "comfyui", sub)
+    return os.path.join(d, "Models", catalog.sanitize_component(company),
+                        catalog.sanitize_component(model))
+
+
+def variant_downloaded(d, mid, mtype, capability, files):
+    """True when every file of this variant already exists at the destination."""
+    if not d or not os.path.isdir(d) or not files:
+        return False
+    dd = variant_dest_dir(d, mid, mtype, capability, files[0]["path"])
+    return all(os.path.exists(os.path.join(
+        dd, catalog.sanitize_component(os.path.basename(f["path"])))) for f in files)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
@@ -235,6 +254,7 @@ class Handler(BaseHTTPRequestHandler):
             v["fits"] = catalog.fits_badge(v["size"], effective_ram())
             # Same margin the enqueue check uses, so the button never lies.
             v["will_fit_disk"] = bool(free) and v["size"] * 1.05 + 500 * 1024 * 1024 < free
+            v["already"] = variant_downloaded(d, mid, mtype, capability, v["files"])
         card = info.get("cardData") or {}
         p = catalog.parse_params(mid)
         description = "" if info.get("gated") else catalog.readme_excerpt(hf_api.model_readme(mid))
@@ -264,14 +284,13 @@ class Handler(BaseHTTPRequestHandler):
                                  % (total / 1e9, free / 1e9)}, 400)
             return
         mid = body["model_id"]
-        company, _, model = mid.partition("/")
-        if body.get("mtype") == "image":
-            sub = catalog.comfy_subfolder(body.get("capability", ""), [],
-                                          body["files"][0]["path"])
-            dest_dir = os.path.join(d, "Models", "comfyui", sub)
-        else:
-            dest_dir = os.path.join(d, "Models", catalog.sanitize_component(company),
-                                    catalog.sanitize_component(model))
+        if variant_downloaded(d, mid, body.get("mtype", "gguf"),
+                              body.get("capability", ""), body["files"]):
+            self._json({"error": "This version is already in your library. "
+                                 "Delete it there first if you want to download it again."}, 409)
+            return
+        dest_dir = variant_dest_dir(d, mid, body.get("mtype", "gguf"),
+                                    body.get("capability", ""), body["files"][0]["path"])
         job = {"id": make_job_id(), "model_id": mid,
                "label": "%s · %s" % (mid, body.get("variant_label", "")),
                "dest_dir": dest_dir, "state": "queued", "downloaded_bytes": 0, "error": "",

@@ -130,16 +130,17 @@ $("#filters").addEventListener("click", (ev) => {
   if (!chip) return;
   const row = chip.parentElement, group = row.dataset.group;
   if (row.dataset.multi) {
-    const actives = row.querySelectorAll(".chip.active");
-    if (chip.classList.contains("active") && actives.length === 1) return; // keep >= 1
+    if (group === "type") {
+      const actives = row.querySelectorAll(".chip.active");
+      if (chip.classList.contains("active") && actives.length === 1) return; // keep >= 1
+    }
     chip.classList.toggle("active");
-    state.filters[group] = [...row.querySelectorAll(".chip.active")].map((c) => c.dataset.v).join(",");
+    // Union across every row of this group (both capability rows share one value).
+    state.filters[group] = $$('[data-group="' + group + '"] .chip.active')
+      .map((c) => c.dataset.v).join(",");
   } else {
     const wasActive = chip.classList.contains("active");
-    const scope = group === "capability"
-      ? $$('[data-group="capability"] .chip')            // both capability rows share one choice
-      : [...row.querySelectorAll(".chip")];
-    scope.forEach((c) => c.classList.remove("active"));
+    row.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
     if (!wasActive || group === "sort") chip.classList.add("active");
     state.filters[group] = row.querySelector(".chip.active")?.dataset.v || "";
   }
@@ -155,7 +156,7 @@ $("#filters").addEventListener("click", (ev) => {
     }
     if (!img) $$("#capImage .chip").forEach((c) => c.classList.remove("active"));
     state.filters.capability =
-      document.querySelector("#capText .chip.active, #capImage .chip.active")?.dataset.v || "";
+      $$('[data-group="capability"] .chip.active').map((c) => c.dataset.v).join(",");
   }
   if (group === "company") $("#companyFree").value = "";
   runSearch();
@@ -225,8 +226,11 @@ async function openDetail(card, cardEl) {
   d.hidden = false;
   d.replaceChildren(el("div", "msg", "Loading " + card.id + "…"));
   try {
+    // Routing (ComfyUI subfolder) needs one image capability, not the whole list.
+    const imageCap = state.filters.capability.split(",")
+      .find((c) => ["image-gen", "video-gen", "lora", "upscaler"].includes(c)) || "";
     const qs = new URLSearchParams({ id: card.id, type: card.mtype || state.filters.type.split(",")[0],
-      capability: state.filters.capability });
+      capability: imageCap });
     const m = await api("/api/model?" + qs);
     if (token !== state.detailToken) return;   // a newer click superseded this one
     m.mtype = card.mtype || state.filters.type.split(",")[0];
@@ -284,7 +288,7 @@ async function openDetail(card, cardEl) {
       btn.addEventListener("click", async () => {
         try {
           await post("/api/download", { model_id: m.id, variant_label: v.label,
-            files: v.files, mtype: m.mtype, capability: state.filters.capability });
+            files: v.files, mtype: m.mtype, capability: imageCap });
           toast("Added to downloads: " + v.label);
           $('[data-tab="downloads"]').click();
         } catch (e) { toast(e.message, true); }

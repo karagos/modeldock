@@ -159,29 +159,39 @@ class Handler(BaseHTTPRequestHandler):
     def _api_search(self):
         q = self._query()
         types = [t for t in q.get("type", "gguf").split(",") if t] or ["gguf"]
-        capability = q.get("capability", "")
+        caps = [c for c in q.get("capability", "").split(",") if c]
+        want_moe = "moe" in caps
         sort = q.get("sort", "downloads")
         want_bucket = q.get("size", "")
-        per_type = []
+        # Size/MoE filtering happens after the fetch (HF has no param-count
+        # filter), so pull a deeper page to avoid false "no results".
+        limit = 100 if (want_bucket or want_moe) else 30
+        text_caps = [c for c in caps if c in catalog.TEXT_CAPS and c != "moe"]
+        image_pipes = [c for c in caps if c in ("image-gen", "video-gen")]
+        image_extras = [c for c in caps if c in ("lora", "upscaler")]
+
+        queries = []  # (type, capabilities-for-query)
         for t in types:
-            cap = capability if (
-                (t in ("gguf", "mlx") and capability in catalog.TEXT_CAPS)
-                or (t == "image" and capability in catalog.IMAGE_CAPS)) else ""
+            if t in ("gguf", "mlx"):
+                queries.append((t, text_caps))
+            else:
+                # One HF query per selected image pipeline (each can carry only one tag).
+                for pipe in (image_pipes or [None]):
+                    queries.append((t, ([pipe] if pipe else []) + image_extras))
+
+        per_query = []
+        for t, qcaps in queries:
             params = catalog.build_search_params(
                 q=q.get("q", ""), mtype=t, company=q.get("company", ""),
-                capability=cap, sort=sort,
-                # Size/MoE filtering happens after the fetch (HF has no param-count
-                # filter), so pull a deeper page to avoid false "no results".
-                limit=100 if want_bucket else 30)
+                capabilities=qcaps, sort=sort, limit=limit)
             cards = []
             for m in hf_api.search_models(params):
                 mid = m.get("id", "")
                 p = catalog.parse_params(mid)
                 bucket = catalog.size_bucket(p["total_b"]) if p else None
-                if want_bucket == "moe":
-                    if not (p and p["moe"]):
-                        continue
-                elif want_bucket and bucket != want_bucket:
+                if want_moe and not (p and p["moe"]):
+                    continue
+                if want_bucket and bucket != want_bucket:
                     continue
                 cards.append({
                     "id": mid, "company": mid.split("/")[0], "mtype": t,
@@ -189,8 +199,8 @@ class Handler(BaseHTTPRequestHandler):
                     "updated": m.get("lastModified", ""), "gated": bool(m.get("gated")),
                     "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
                     "params": p, "bucket": bucket})
-            per_type.append(cards)
-        self._json({"results": catalog.merge_cards(per_type, sort)})
+            per_query.append(cards)
+        self._json({"results": catalog.merge_cards(per_query, sort)})
 
     def _api_model(self):
         q = self._query()

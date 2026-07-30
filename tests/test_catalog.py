@@ -64,21 +64,35 @@ class TestCapabilities(unittest.TestCase):
 
     def test_search_params_text(self):
         p = catalog.build_search_params(q="qwen", mtype="gguf", company="Qwen",
-                                        capability="thinking", sort="downloads")
+                                        capabilities=["thinking"], sort="downloads")
         self.assertEqual(p["filter"], "gguf")
         self.assertEqual(p["author"], "Qwen")
         self.assertIn("reasoning", p["search"])
         self.assertEqual(p["sort"], "downloads")
 
+    def test_search_params_multi_capability(self):
+        p = catalog.build_search_params(q="", mtype="gguf", company="",
+                                        capabilities=["thinking", "vision"], sort="downloads")
+        self.assertEqual(p["pipeline_tag"], "image-text-to-text")  # vision
+        self.assertIn("reasoning", p["search"])                    # thinking, combined
+
     def test_search_params_image(self):
-        p = catalog.build_search_params(q="", mtype="image", company="", capability="video-gen", sort="trending")
+        p = catalog.build_search_params(q="", mtype="image", company="",
+                                        capabilities=["video-gen"], sort="trending")
         self.assertEqual(p["pipeline_tag"], "text-to-video")
         self.assertEqual(p["sort"], "trendingScore")
 
     def test_search_params_mlx(self):
-        p = catalog.build_search_params(q="llama", mtype="mlx", company="", capability="", sort="newest")
+        p = catalog.build_search_params(q="llama", mtype="mlx", company="",
+                                        capabilities=[], sort="newest")
         self.assertEqual(p["filter"], "mlx")
         self.assertEqual(p["sort"], "lastModified")
+
+    def test_moe_is_not_a_query_param(self):
+        p = catalog.build_search_params(q="", mtype="gguf", company="",
+                                        capabilities=["moe", "coding"], sort="downloads")
+        self.assertIn("coder", p.get("search", ""))
+        self.assertNotIn("moe", p.get("search", ""))  # moe is a post-filter, not a term
 
 
 class TestRoutingAndFits(unittest.TestCase):

@@ -82,7 +82,7 @@ def detect_capabilities(model_id, tags):
     return caps
 
 
-TEXT_CAPS = {"vision", "thinking", "agentic", "coding"}
+TEXT_CAPS = {"vision", "thinking", "agentic", "coding", "moe"}
 IMAGE_CAPS = {"image-gen", "video-gen", "lora", "upscaler"}
 
 
@@ -115,24 +115,28 @@ CAP_SEARCH_EXTRA = {"thinking": "reasoning", "coding": "coder", "agentic": "tool
 CAP_PIPELINE = {"vision": "image-text-to-text", "image-gen": "text-to-image", "video-gen": "text-to-video"}
 
 
-def build_search_params(q="", mtype="gguf", company="", capability="", sort="downloads", limit=30):
+def build_search_params(q="", mtype="gguf", company="", capabilities=(), sort="downloads", limit=30):
+    """Capabilities combine: search terms accumulate, vision sets the pipeline tag.
+    'moe' is intentionally NOT a query param — it's a post-fetch filter."""
+    caps = set(capabilities)
     p = {"limit": str(limit), "sort": SORT_MAP.get(sort, "downloads"), "direction": "-1", "full": "true"}
     search_terms = [q] if q else []
-    if capability in CAP_SEARCH_EXTRA:
-        search_terms.append(CAP_SEARCH_EXTRA[capability])
+    for c in sorted(caps & set(CAP_SEARCH_EXTRA)):
+        search_terms.append(CAP_SEARCH_EXTRA[c])
     if mtype == "gguf":
         p["filter"] = "gguf"
     elif mtype == "mlx":
         p["filter"] = "mlx"
     elif mtype == "image":
-        p["pipeline_tag"] = CAP_PIPELINE.get(capability, "text-to-image")
-        if capability == "lora":
+        pipe = next((c for c in ("image-gen", "video-gen") if c in caps), None)
+        if "lora" in caps:
             p["filter"] = "lora"
-            p.pop("pipeline_tag")
-        if capability == "upscaler":
-            p.pop("pipeline_tag", None)
-    if capability in CAP_PIPELINE and mtype != "image":
-        p["pipeline_tag"] = CAP_PIPELINE[capability]
+        elif "upscaler" in caps:
+            pass  # search term only
+        else:
+            p["pipeline_tag"] = CAP_PIPELINE.get(pipe, "text-to-image")
+    if mtype != "image" and "vision" in caps:
+        p["pipeline_tag"] = CAP_PIPELINE["vision"]
     if company:
         p["author"] = company
     if search_terms:

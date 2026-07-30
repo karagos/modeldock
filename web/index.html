@@ -28,7 +28,7 @@
       <button id="goBtn" class="primary">Search</button>
     </div>
     <div class="filters" id="filters">
-      <div class="chiprow" data-group="type">
+      <div class="chiprow" data-group="type" data-multi="1">
         <span class="lbl">Type</span>
         <button class="chip active" data-v="gguf">Chat · GGUF</button>
         <button class="chip" data-v="mlx">Chat · MLX</button>
@@ -102,12 +102,30 @@
       <h3>Preferred quantization</h3>
       <p class="hint">Pre-highlighted in every model. Q4 = best size/quality balance for most Macs.</p>
       <div class="chiprow" id="quantPref">
+        <button class="chip" data-v="Q2">Q2</button><button class="chip" data-v="Q3">Q3</button>
         <button class="chip" data-v="Q4">Q4</button><button class="chip" data-v="Q5">Q5</button>
         <button class="chip" data-v="Q6">Q6</button><button class="chip" data-v="Q8">Q8</button>
-        <button class="chip" data-v="F16">F16</button>
+        <button class="chip" data-v="F16">F16</button><button class="chip" data-v="BF16">BF16</button>
+        <button class="chip" data-v="MLX-3BIT">MLX 3-bit</button>
         <button class="chip" data-v="MLX-4BIT">MLX 4-bit</button>
+        <button class="chip" data-v="MLX-6BIT">MLX 6-bit</button>
         <button class="chip" data-v="MLX-8BIT">MLX 8-bit</button>
       </div>
+    </div>
+    <div class="setting">
+      <h3>Memory (RAM) for the "fits" badge</h3>
+      <p class="hint">The green/orange/red dots compare each model file to this amount of memory.
+      Leave on Auto for this Mac, or pick a size to plan for a different machine.</p>
+      <select id="ramSel">
+        <option value="0">Auto — use this Mac's memory</option>
+        <option value="8">8 GB</option><option value="16">16 GB</option>
+        <option value="18">18 GB</option><option value="24">24 GB</option>
+        <option value="32">32 GB</option><option value="36">36 GB</option>
+        <option value="48">48 GB</option><option value="64">64 GB</option>
+        <option value="96">96 GB</option><option value="128">128 GB</option>
+        <option value="192">192 GB</option><option value="256">256 GB</option>
+        <option value="512">512 GB</option>
+      </select>
     </div>
     <div class="setting"><h3>About</h3>
       <p class="hint">ModelDock v1.0 — downloads AI models from Hugging Face to any drive.

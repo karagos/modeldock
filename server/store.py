@@ -4,7 +4,8 @@ import os
 import threading
 
 DEFAULT_SETTINGS = {"destination": "", "recent_destinations": [],
-                    "preferred_quant": "Q4", "theme": "dark"}
+                    "preferred_quant": "Q4", "theme": "dark",
+                    "ram_override_gb": 0}  # 0 = use this Mac's detected RAM
 
 
 class Store:

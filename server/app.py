@@ -37,6 +37,12 @@ def mac_ram():
 RAM = mac_ram()
 
 
+def effective_ram():
+    """Manual override from Settings (for planning around a future Mac), else detected."""
+    gb = STORE.data["settings"].get("ram_override_gb") or 0
+    return int(gb) * 1024 ** 3 if gb else RAM
+
+
 def dest():
     return STORE.data["settings"]["destination"]
 
@@ -112,7 +118,9 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/api/system":
                 d = dest()
                 connected = bool(d) and os.path.isdir(d)
-                self._json({"ram": RAM, "destination": d, "connected": connected,
+                self._json({"ram": effective_ram(), "ram_detected": RAM,
+                            "ram_source": "manual" if STORE.data["settings"].get("ram_override_gb") else "auto",
+                            "destination": d, "connected": connected,
                             "disk": library.disk_stats(d) if connected else {"free": 0, "total": 0}})
             else:
                 self._static(route)
@@ -150,35 +158,44 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- API implementations ----------
     def _api_search(self):
         q = self._query()
-        params = catalog.build_search_params(
-            q=q.get("q", ""), mtype=q.get("type", "gguf"), company=q.get("company", ""),
-            capability=q.get("capability", ""), sort=q.get("sort", "downloads"))
-        raw = hf_api.search_models(params)
+        types = [t for t in q.get("type", "gguf").split(",") if t] or ["gguf"]
+        capability = q.get("capability", "")
+        sort = q.get("sort", "downloads")
         want_bucket = q.get("size", "")
-        cards = []
-        for m in raw:
-            mid = m.get("id", "")
-            p = catalog.parse_params(mid)
-            bucket = catalog.size_bucket(p["total_b"]) if p else None
-            if want_bucket == "moe":
-                if not (p and p["moe"]):
+        per_type = []
+        for t in types:
+            cap = capability if (
+                (t in ("gguf", "mlx") and capability in catalog.TEXT_CAPS)
+                or (t == "image" and capability in catalog.IMAGE_CAPS)) else ""
+            params = catalog.build_search_params(
+                q=q.get("q", ""), mtype=t, company=q.get("company", ""),
+                capability=cap, sort=sort)
+            cards = []
+            for m in hf_api.search_models(params):
+                mid = m.get("id", "")
+                p = catalog.parse_params(mid)
+                bucket = catalog.size_bucket(p["total_b"]) if p else None
+                if want_bucket == "moe":
+                    if not (p and p["moe"]):
+                        continue
+                elif want_bucket and bucket != want_bucket:
                     continue
-            elif want_bucket and bucket != want_bucket:
-                continue
-            cards.append({
-                "id": mid, "company": mid.split("/")[0],
-                "downloads": m.get("downloads", 0), "likes": m.get("likes", 0),
-                "updated": m.get("lastModified", ""), "gated": bool(m.get("gated")),
-                "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
-                "params": p, "bucket": bucket})
-        self._json({"results": cards})
+                cards.append({
+                    "id": mid, "company": mid.split("/")[0], "mtype": t,
+                    "downloads": m.get("downloads", 0), "likes": m.get("likes", 0),
+                    "updated": m.get("lastModified", ""), "gated": bool(m.get("gated")),
+                    "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
+                    "params": p, "bucket": bucket})
+            per_type.append(cards)
+        self._json({"results": catalog.merge_cards(per_type, sort)})
 
     def _api_model(self):
         q = self._query()
         mid, mtype = q["id"], q.get("type", "gguf")
         capability = q.get("capability", "")
         info = hf_api.model_info(mid)
-        tree = hf_api.model_tree(mid)
+        # Gated repos 401 on the tree endpoint — return the notice without touching it.
+        tree = [] if info.get("gated") else hf_api.model_tree(mid)
         d = dest()
         free = library.disk_stats(d)["free"] if d and os.path.isdir(d) else 0
         variants = []
@@ -202,8 +219,9 @@ class Handler(BaseHTTPRequestHandler):
                                      "subfolder": catalog.comfy_subfolder(
                                          capability, info.get("tags", []), f["path"])})
         for v in variants:
-            v["fits"] = catalog.fits_badge(v["size"], RAM)
-            v["will_fit_disk"] = bool(free) and v["size"] * 1.05 < free
+            v["fits"] = catalog.fits_badge(v["size"], effective_ram())
+            # Same margin the enqueue check uses, so the button never lies.
+            v["will_fit_disk"] = bool(free) and v["size"] * 1.05 + 500 * 1024 * 1024 < free
         card = info.get("cardData") or {}
         p = catalog.parse_params(mid)
         self._json({
@@ -274,6 +292,11 @@ class Handler(BaseHTTPRequestHandler):
         for k in ("preferred_quant", "theme"):
             if k in body:
                 s[k] = body[k]
+        if "ram_override_gb" in body:
+            try:
+                s["ram_override_gb"] = max(0, int(body["ram_override_gb"]))
+            except (TypeError, ValueError):
+                pass
         STORE.save()
         self._json(s)
 

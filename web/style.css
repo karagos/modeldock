@@ -123,6 +123,11 @@ button.ghost {
   font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 #recents { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+#ramSel {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; font-size: 14px; min-width: 260px;
+}
+.pill.fmt { background: var(--accent-soft); color: var(--accent); }
 .msg { color: var(--muted); padding: 30px 0; text-align: center; }
 #toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

@@ -113,5 +113,38 @@ class TestRoutingAndFits(unittest.TestCase):
         self.assertIn("2 parts", multi["label"])
 
 
+class TestMlxBitsExtended(unittest.TestCase):
+    def test_6bit_and_3bit(self):
+        self.assertEqual(catalog.parse_quant("mlx-community/Qwen3-14B-6bit"), "MLX-6BIT")
+        self.assertEqual(catalog.parse_quant("Model-3bit"), "MLX-3BIT")
+
+
+class TestMergeCards(unittest.TestCase):
+    C = [{"id": "a/x", "downloads": 100, "updated": "2026-01-01"},
+         {"id": "b/y", "downloads": 300, "updated": "2026-03-01"}]
+    D = [{"id": "c/z", "downloads": 200, "updated": "2026-02-01"},
+         {"id": "a/x", "downloads": 100, "updated": "2026-01-01"}]  # duplicate id
+
+    def test_dedupe_and_downloads_sort(self):
+        out = catalog.merge_cards([self.C, self.D], "downloads")
+        self.assertEqual([m["id"] for m in out], ["b/y", "c/z", "a/x"])
+
+    def test_newest_sort(self):
+        out = catalog.merge_cards([self.C, self.D], "newest")
+        self.assertEqual(out[0]["id"], "b/y")
+        self.assertEqual(out[1]["id"], "c/z")
+
+    def test_trending_interleaves(self):
+        out = catalog.merge_cards([self.C, self.D], "trending")
+        self.assertEqual([m["id"] for m in out], ["a/x", "c/z", "b/y"])
+
+
+class TestCapFamilies(unittest.TestCase):
+    def test_membership(self):
+        self.assertIn("thinking", catalog.TEXT_CAPS)
+        self.assertIn("lora", catalog.IMAGE_CAPS)
+        self.assertNotIn("thinking", catalog.IMAGE_CAPS)
+
+
 if __name__ == "__main__":
     unittest.main()

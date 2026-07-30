@@ -9,10 +9,9 @@ def parse_quant(name):
     if m:
         return m.group(1).upper()
     low = name.lower()
-    if "8bit" in low or "8-bit" in low:
-        return "MLX-8BIT"
-    if "4bit" in low or "4-bit" in low:
-        return "MLX-4BIT"
+    for bits in ("8", "6", "4", "3"):
+        if bits + "bit" in low or bits + "-bit" in low:
+            return "MLX-%sBIT" % bits
     return None
 
 
@@ -81,6 +80,34 @@ def detect_capabilities(model_id, tags):
         if tags_low & set(hints):
             caps.add(cap)
     return caps
+
+
+TEXT_CAPS = {"vision", "thinking", "agentic", "coding"}
+IMAGE_CAPS = {"image-gen", "video-gen", "lora", "upscaler"}
+
+
+def merge_cards(lists, sort):
+    """Merge per-type search results: dedupe by id; downloads/newest re-sort,
+    trending preserves each list's ranking by interleaving."""
+    if sort == "trending":
+        merged = []
+        for i in range(max((len(l) for l in lists), default=0)):
+            for l in lists:
+                if i < len(l):
+                    merged.append(l[i])
+    else:
+        merged = [m for l in lists for m in l]
+    seen, out = set(), []
+    for m in merged:
+        if m["id"] in seen:
+            continue
+        seen.add(m["id"])
+        out.append(m)
+    if sort == "downloads":
+        out.sort(key=lambda m: m.get("downloads", 0), reverse=True)
+    elif sort == "newest":
+        out.sort(key=lambda m: m.get("updated", ""), reverse=True)
+    return out
 
 
 SORT_MAP = {"downloads": "downloads", "trending": "trendingScore", "newest": "lastModified"}

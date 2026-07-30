@@ -70,7 +70,11 @@ async function refreshSystem() {
       $("#destFree").textContent = fmtBytes(state.system.disk.free) + " free";
       pill.classList.remove("warn");
     }
-    $("#ramInfo").textContent = fmtBytes(state.system.ram);
+    const gib = (n) => Math.round(n / 1073741824) + " GB";  // RAM is marketed in binary GB
+    const src = state.system.ram_source === "manual"
+      ? " (manual — this Mac has " + gib(state.system.ram_detected) + ")"
+      : " (this Mac, detected)";
+    $("#ramInfo").textContent = gib(state.system.ram) + src;
   } catch (e) { /* server briefly busy — retried on next tick */ }
 }
 
@@ -88,7 +92,10 @@ async function loadSettings() {
   });
   $$("#quantPref .chip").forEach((c) =>
     c.classList.toggle("active", c.dataset.v === state.settings.preferred_quant));
+  $("#ramSel").value = String(state.settings.ram_override_gb || 0);
 }
+$("#ramSel").addEventListener("change", () =>
+  saveSettings({ ram_override_gb: Number($("#ramSel").value) }));
 async function saveSettings(patch) {
   try {
     await post("/api/settings", patch);
@@ -107,20 +114,48 @@ $("#quantPref").addEventListener("click", (ev) => {
   if (c) saveSettings({ preferred_quant: c.dataset.v });
 });
 
-// ---- filter chips (single-select per row, click again to clear) ----
+// ---- filter chips ----
+// Type row is MULTI-select (at least one stays on); other rows are
+// single-select where clicking the active chip clears it.
+function syncTypeRows() {
+  const types = state.filters.type.split(",");
+  const chat = types.includes("gguf") || types.includes("mlx");
+  const img = types.includes("image");
+  $("#capText").hidden = !chat;
+  $("#capImage").hidden = !img;
+  $("#sizeRow").hidden = !chat;
+}
 $("#filters").addEventListener("click", (ev) => {
   const chip = ev.target.closest(".chip");
   if (!chip) return;
   const row = chip.parentElement, group = row.dataset.group;
-  const wasActive = chip.classList.contains("active");
-  row.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
-  if (!wasActive || group === "type" || group === "sort") chip.classList.add("active");
-  state.filters[group] = row.querySelector(".chip.active")?.dataset.v || "";
+  if (row.dataset.multi) {
+    const actives = row.querySelectorAll(".chip.active");
+    if (chip.classList.contains("active") && actives.length === 1) return; // keep >= 1
+    chip.classList.toggle("active");
+    state.filters[group] = [...row.querySelectorAll(".chip.active")].map((c) => c.dataset.v).join(",");
+  } else {
+    const wasActive = chip.classList.contains("active");
+    const scope = group === "capability"
+      ? $$('[data-group="capability"] .chip')            // both capability rows share one choice
+      : [...row.querySelectorAll(".chip")];
+    scope.forEach((c) => c.classList.remove("active"));
+    if (!wasActive || group === "sort") chip.classList.add("active");
+    state.filters[group] = row.querySelector(".chip.active")?.dataset.v || "";
+  }
   if (group === "type") {
-    const img = state.filters.type === "image";
-    $("#capText").hidden = img; $("#capImage").hidden = !img; $("#sizeRow").hidden = img;
-    state.filters.capability = ""; state.filters.size = "";
-    $$("#capText .chip, #capImage .chip, #sizeRow .chip").forEach((c) => c.classList.remove("active"));
+    syncTypeRows();
+    // Drop capability/size choices that no longer apply to the selected types.
+    const types = state.filters.type.split(",");
+    const chat = types.includes("gguf") || types.includes("mlx");
+    const img = types.includes("image");
+    if (!chat) {
+      state.filters.size = "";
+      $$("#sizeRow .chip, #capText .chip").forEach((c) => c.classList.remove("active"));
+    }
+    if (!img) $$("#capImage .chip").forEach((c) => c.classList.remove("active"));
+    state.filters.capability =
+      document.querySelector("#capText .chip.active, #capImage .chip.active")?.dataset.v || "";
   }
   if (group === "company") $("#companyFree").value = "";
   runSearch();
@@ -157,9 +192,12 @@ function renderResults() {
     box.append(el("div", "msg", "No models found — try fewer filters or another search term."));
     return;
   }
+  const FMT = { gguf: "GGUF", mlx: "MLX", image: "IMG" };
+  const multiType = state.filters.type.includes(",");
   state.results.forEach((m) => {
     const c = el("div", "card");
     const name = el("span", "name", m.id);
+    if (multiType && FMT[m.mtype]) name.append(el("span", "pill fmt", FMT[m.mtype]));
     if (m.params && m.params.moe) name.append(el("span", "pill moe", "MoE"));
     if (m.bucket) name.append(el("span", "pill", m.bucket.replace("<=", "≤")));
     (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
@@ -178,9 +216,10 @@ async function openDetail(card) {
   d.replaceChildren(el("div", "msg", "Loading " + card.id + "…"));
   d.scrollIntoView({ behavior: "smooth" });
   try {
-    const qs = new URLSearchParams({ id: card.id, type: state.filters.type,
+    const qs = new URLSearchParams({ id: card.id, type: card.mtype || state.filters.type.split(",")[0],
       capability: state.filters.capability });
     const m = await api("/api/model?" + qs);
+    m.mtype = card.mtype || state.filters.type.split(",")[0];
     d.replaceChildren();
     const back = el("button", "ghost", "← back to results");
     back.addEventListener("click", () => { d.hidden = true; });
@@ -201,7 +240,13 @@ async function openDetail(card) {
       return;
     }
     const prefFam = state.settings.preferred_quant || "";
-    const famOf = (q) => (q ? (q.startsWith("MLX") ? q : "Q" + (q.match(/\d/) || [""])[0]) : "");
+    // Mirror server-side quant_family: IQ4_XS -> Q4, F16/BF16 stay themselves.
+    const famOf = (q) => {
+      if (!q) return "";
+      if (q.startsWith("MLX")) return q;
+      const m = q.match(/^I?Q(\d)/);
+      return m ? "Q" + m[1] : q;
+    };
     m.variants.forEach((v) => {
       const row = el("div", "variant");
       if (prefFam && famOf(v.quant) === prefFam) row.classList.add("preferred");
@@ -216,7 +261,7 @@ async function openDetail(card) {
       btn.addEventListener("click", async () => {
         try {
           await post("/api/download", { model_id: m.id, variant_label: v.label,
-            files: v.files, mtype: state.filters.type, capability: state.filters.capability });
+            files: v.files, mtype: m.mtype, capability: state.filters.capability });
           toast("Added to downloads: " + v.label);
           $('[data-tab="downloads"]').click();
         } catch (e) { toast(e.message, true); }
@@ -349,6 +394,7 @@ async function loadLibrary() {
 
 // ---- boot ----
 (async function boot() {
+  syncTypeRows();
   await loadSettings();
   await refreshSystem();
   setInterval(refreshSystem, 5000);

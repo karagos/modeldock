@@ -20,8 +20,8 @@ class TestLibrary(unittest.TestCase):
 
     def test_scan(self):
         with tempfile.TemporaryDirectory() as d:
-            touch(os.path.join(d, "Models/Qwen/Qwen3-14B-GGUF/q.Q4_K_M.gguf"), 100)
-            touch(os.path.join(d, "Models/Qwen/Qwen3-14B-GGUF/q.Q8_0.gguf"), 200)
+            touch(os.path.join(d, "Models/llm/Qwen/Qwen3-14B-GGUF/q.Q4_K_M.gguf"), 100)
+            touch(os.path.join(d, "Models/llm/Qwen/Qwen3-14B-GGUF/q.Q8_0.gguf"), 200)
             touch(os.path.join(d, "Models/comfyui/loras/style.safetensors"), 50)
             out = library.scan(d)
             self.assertTrue(out["connected"])
@@ -35,7 +35,7 @@ class TestLibrary(unittest.TestCase):
 
     def test_part_files_marked_incomplete(self):
         with tempfile.TemporaryDirectory() as d:
-            touch(os.path.join(d, "Models/X/M/model.gguf.part"), 10)
+            touch(os.path.join(d, "Models/llm/X/M/model.gguf.part"), 10)
             out = library.scan(d)
             self.assertTrue(out["text_models"][0]["incomplete"])
 

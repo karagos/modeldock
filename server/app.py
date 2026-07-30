@@ -65,7 +65,7 @@ def variant_dest_dir(d, mid, mtype, capability, first_path):
     if mtype == "image":
         sub = catalog.comfy_subfolder(capability, [], first_path)
         return os.path.join(d, "Models", "comfyui", sub)
-    return os.path.join(d, "Models", catalog.sanitize_component(company),
+    return os.path.join(d, "Models", "llm", catalog.sanitize_component(company),
                         catalog.sanitize_component(model))
 
 

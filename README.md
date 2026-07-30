@@ -25,12 +25,13 @@ Double-click **`start.command`**. Your browser opens at `http://127.0.0.1:8420`.
 
 ```
 YourSSD/Models/
-├── Qwen/Qwen3-14B-GGUF/…gguf          ← chat models
-└── comfyui/
+├── llm/                                ← chat models (LLMs)
+│   └── Qwen/Qwen3-14B-GGUF/…gguf
+└── comfyui/                            ← diffusion models (image & video)
     ├── checkpoints/  loras/  vae/  upscale_models/
 ```
 
-- **LM Studio:** Settings → Models folder → point it at `YourSSD/Models`. Everything ModelDock downloads appears automatically.
+- **LM Studio:** Settings → Models folder → point it at `YourSSD/Models/llm`. Everything ModelDock downloads appears automatically.
 - **Ollama:** import a GGUF once with `ollama create <name> -f Modelfile` where the Modelfile contains `FROM /path/to/model.gguf`.
 - **ComfyUI Desktop:** add `YourSSD/Models/comfyui` to extra model paths.
 

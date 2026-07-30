@@ -33,21 +33,24 @@ def scan(dest):
     result = {"connected": True, "text_models": [], "comfy_models": [], "total_bytes": 0}
     if not os.path.isdir(root):
         return result
-    for company in sorted(os.listdir(root)):
-        cpath = os.path.join(root, company)
+    comfy_root = os.path.join(root, "comfyui")
+    if os.path.isdir(comfy_root):
+        for sub in sorted(os.listdir(comfy_root)):
+            spath = os.path.join(comfy_root, sub)
+            if not os.path.isdir(spath):
+                continue
+            for name, size, mtime in _entry_files(spath):
+                result["comfy_models"].append({
+                    "name": name, "subfolder": sub, "size": size, "mtime": mtime,
+                    "path": os.path.join(spath, name),
+                    "incomplete": name.endswith(".part")})
+                result["total_bytes"] += size
+    llm_root = os.path.join(root, "llm")
+    if not os.path.isdir(llm_root):
+        return result
+    for company in sorted(os.listdir(llm_root)):
+        cpath = os.path.join(llm_root, company)
         if not os.path.isdir(cpath) or company.startswith("."):
-            continue
-        if company == "comfyui":
-            for sub in sorted(os.listdir(cpath)):
-                spath = os.path.join(cpath, sub)
-                if not os.path.isdir(spath):
-                    continue
-                for name, size, mtime in _entry_files(spath):
-                    result["comfy_models"].append({
-                        "name": name, "subfolder": sub, "size": size, "mtime": mtime,
-                        "path": os.path.join(spath, name),
-                        "incomplete": name.endswith(".part")})
-                    result["total_bytes"] += size
             continue
         for model in sorted(os.listdir(cpath)):
             mpath = os.path.join(cpath, model)

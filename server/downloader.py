@@ -32,6 +32,10 @@ class DownloadManager:
         for job in self.store.data["queue"]:      # recover after restart
             if job["state"] == "active":
                 job["state"] = "paused"
+        # Jobs still queued at shutdown continue automatically on next launch.
+        if any(j["state"] == "queued" for j in self.store.data["queue"]):
+            with self._lock:
+                self._ensure_worker()
 
     # ---- public API ----
     def add_job(self, job):

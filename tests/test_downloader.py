@@ -163,3 +163,21 @@ class TestAuditFixes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBootKick(unittest.TestCase):
+    def test_queued_jobs_continue_after_restart(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            job = make_job(d)
+            with open(os.path.join(d, "s.json"), "w") as f:
+                json.dump({"settings": {}, "queue": [job]}, f)
+            mgr = DownloadManager(Store(os.path.join(d, "s.json")), opener=range_opener)
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                st = mgr.status()
+                if st and st[0]["state"] == "done":
+                    break
+                time.sleep(0.05)
+            self.assertEqual(mgr.status()[0]["state"], "done")
+            self.assertTrue(os.path.exists(os.path.join(d, "file.bin")))

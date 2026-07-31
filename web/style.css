@@ -122,6 +122,16 @@ button.ghost {
 .bar { height: 6px; background: var(--bg3); border-radius: 3px; margin-top: 10px; overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s; }
 .dl-err { color: var(--red); font-size: 13px; margin-top: 6px; }
+.libbar { display: flex; gap: 10px; margin-bottom: 4px; }
+#libFilter {
+  flex: 1; background: var(--bg2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 8px 12px; font-size: 14px;
+}
+#libSort {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; font-size: 14px;
+}
+.lib-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .lib-group h3 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
 .lib-item {
   display: flex; align-items: center; gap: 12px; background: var(--bg2);

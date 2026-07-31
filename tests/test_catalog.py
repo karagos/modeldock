@@ -16,6 +16,10 @@ class TestQuant(unittest.TestCase):
     def test_qwen_name_not_a_quant(self):
         self.assertIsNone(catalog.parse_quant("Qwen3-Instruct.gguf"))
 
+    def test_lowercase_quants(self):
+        self.assertEqual(catalog.parse_quant("llama-2-7b.q4_k_m.gguf"), "Q4_K_M")
+        self.assertEqual(catalog.parse_quant("Kimi-K3-REAP73-MLX-mxfp4-q8"), "Q8")
+
     def test_mlx_bits(self):
         self.assertEqual(catalog.parse_quant("mlx-community/Qwen3-14B-4bit"), "MLX-4BIT")
         self.assertEqual(catalog.parse_quant("Model-8bit"), "MLX-8BIT")

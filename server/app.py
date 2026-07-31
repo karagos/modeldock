@@ -131,6 +131,8 @@ class Handler(BaseHTTPRequestHandler):
                 d = dest()
                 out = library.scan(d)
                 out["disk"] = library.disk_stats(d) if out["connected"] else {"free": 0, "total": 0}
+                for m in out["text_models"]:
+                    m["fits"] = catalog.fits_badge(m["size"], effective_ram())
                 self._json(out)
             elif route == "/api/settings":
                 self._json(STORE.data["settings"])

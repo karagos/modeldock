@@ -39,6 +39,21 @@ class TestLibrary(unittest.TestCase):
             out = library.scan(d)
             self.assertTrue(out["text_models"][0]["incomplete"])
 
+    def test_mlx_quant_from_folder_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            touch(os.path.join(d, "Models/llm/mlx-community/Qwen3-14B-4bit/model.safetensors"), 10)
+            m = library.scan(d)["text_models"][0]
+            self.assertEqual(m["quants"], ["MLX-4BIT"])
+            self.assertEqual(m["format"], "MLX")
+
+    def test_caps_and_params_from_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            touch(os.path.join(d, "Models/llm/Qwen/Qwen3-30B-A3B-Thinking-GGUF/q.Q4_K_M.gguf"), 10)
+            m = library.scan(d)["text_models"][0]
+            self.assertIn("thinking", m["caps"])
+            self.assertTrue(m["params"]["moe"])
+            self.assertEqual(m["params"]["total_b"], 30.0)
+
 
 if __name__ == "__main__":
     unittest.main()

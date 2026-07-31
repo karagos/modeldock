@@ -60,11 +60,18 @@ def scan(dest):
             if not files:
                 continue
             size = sum(f[1] for f in files)
-            quants = sorted({q for q in (catalog.parse_quant(f[0]) for f in files) if q})
+            # Quant markers live in GGUF filenames but in MLX FOLDER names,
+            # so the folder name is a candidate too.
+            quants = {q for q in (catalog.parse_quant(f[0]) for f in files) if q}
+            folder_q = catalog.parse_quant(model)
+            if not quants and folder_q:
+                quants.add(folder_q)
             fmt = "GGUF" if any(f[0].lower().endswith((".gguf", ".gguf.part")) for f in files) else "MLX"
             result["text_models"].append({
                 "company": company, "model": model, "path": mpath, "size": size,
-                "mtime": max(f[2] for f in files), "quants": quants, "format": fmt,
+                "mtime": max(f[2] for f in files), "quants": sorted(quants), "format": fmt,
+                "caps": sorted(catalog.detect_capabilities(company + "/" + model, [])),
+                "params": catalog.parse_params(model),
                 "incomplete": any(f[0].endswith(".part") for f in files)})
             result["total_bytes"] += size
     return result

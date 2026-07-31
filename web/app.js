@@ -368,60 +368,98 @@ $("#clearDone").addEventListener("click", async () => {
 });
 
 // ---- library ----
+const LIB_CAPS = { vision: "Vision", thinking: "Thinking", agentic: "Agentic", coding: "Coding" };
+const FIT_TITLES = { green: "Runs comfortably on this Mac", orange: "Tight, will be slow",
+  red: "Won't fit in this Mac's memory", unknown: "Memory unknown" };
+
+function libActions(path) {
+  const rev = el("button", "ghost", "Reveal");
+  rev.addEventListener("click", () => post("/api/reveal", { path }));
+  const del = el("button", "ghost", "Delete");
+  del.addEventListener("click", async () => {
+    if (!confirm("Move to Trash?\n\n" + path)) return;
+    try { await post("/api/library/delete", { path }); toast("Moved to Trash"); state.lib = null; loadLibrary(); }
+    catch (e) { toast(e.message, true); }
+  });
+  return [rev, del];
+}
+
+function renderLibrary() {
+  const lib = state.lib;
+  const box = $("#libList"); box.replaceChildren();
+  const q = ($("#libFilter").value || "").trim().toLowerCase();
+  const sort = $("#libSort").value;
+  const matches = (hay) => !q || hay.toLowerCase().includes(q);
+  const text = lib.text_models.filter((m) => matches(
+    [m.company, m.model, m.format, m.quants.join(" "), (m.caps || []).join(" "),
+     m.params && m.params.moe ? "moe" : ""].join(" ")));
+  const sorters = {
+    date: (a, b) => b.mtime - a.mtime,
+    size: (a, b) => b.size - a.size,
+    name: (a, b) => a.model.localeCompare(b.model),
+    company: (a, b) => a.company.localeCompare(b.company) || a.model.localeCompare(b.model),
+  };
+  text.sort(sorters[sort] || sorters.date);
+  if (text.length) {
+    const g = el("div", "lib-group"); g.append(el("h3", "", "Chat & text models"));
+    text.forEach((m) => {
+      const it = el("div", "lib-item");
+      const nm = el("div", "lib-name");
+      const fit = el("span", "fit " + (m.fits || "unknown"));
+      fit.title = FIT_TITLES[m.fits || "unknown"];
+      nm.append(fit, el("span", "", m.company + " / " + m.model));
+      if (m.params && m.params.moe) nm.append(el("span", "pill moe", "MoE"));
+      if (m.params && m.params.total_b) nm.append(el("span", "pill", m.params.total_b + "B"));
+      (m.caps || []).forEach((c) => LIB_CAPS[c] && nm.append(el("span", "pill", LIB_CAPS[c])));
+      if (m.incomplete) nm.append(el("span", "pill gated", "incomplete"));
+      it.append(nm, el("span", "meta", m.format + " · " + (m.quants.join(", ") || "n/a") +
+        " · " + fmtBytes(m.size) + " · " + new Date(m.mtime * 1000).toLocaleDateString()));
+      it.append(...libActions(m.path));
+      g.append(it);
+    });
+    box.append(g);
+  }
+  const comfy = lib.comfy_models.filter((m) => matches(m.name + " " + m.subfolder));
+  if (comfy.length) {
+    const g = el("div", "lib-group"); g.append(el("h3", "", "Image & video models (ComfyUI)"));
+    comfy.forEach((m) => {
+      const it = el("div", "lib-item");
+      it.append(el("span", "", m.name),
+        el("span", "meta", m.subfolder + " · " + fmtBytes(m.size)));
+      it.append(...libActions(m.path));
+      g.append(it);
+    });
+    box.append(g);
+  }
+  if (!text.length && !comfy.length) {
+    box.append(el("div", "msg", q ? "No models match this filter."
+      : "Nothing downloaded yet to this destination."));
+  }
+}
+
 async function loadLibrary() {
-  const box = $("#libList"); box.replaceChildren(el("div", "msg", "Reading destination…"));
+  const box = $("#libList");
+  if (!state.lib) box.replaceChildren(el("div", "msg", "Reading destination…"));
   try {
     const lib = await api("/api/library");
-    box.replaceChildren();
     if (!lib.connected) {
-      $("#libStats").textContent = "";
-      box.append(el("div", "msg", "Destination drive is not connected (or no destination chosen in Settings)."));
+      $("#libStats").textContent = ""; $("#libBar").hidden = true;
+      box.replaceChildren(el("div", "msg",
+        "Destination drive is not connected (or no destination chosen in Settings)."));
       return;
     }
-    $("#libStats").textContent = "Models: " + fmtBytes(lib.total_bytes) +
-      " · Free on drive: " + fmtBytes(lib.disk.free);
-    const mkActions = (path) => {
-      const rev = el("button", "ghost", "Reveal");
-      rev.addEventListener("click", () => post("/api/reveal", { path }));
-      const del = el("button", "ghost", "Delete");
-      del.addEventListener("click", async () => {
-        if (!confirm("Move to Trash?\n\n" + path)) return;
-        try { await post("/api/library/delete", { path }); toast("Moved to Trash"); loadLibrary(); }
-        catch (e) { toast(e.message, true); }
-      });
-      return [rev, del];
-    };
-    if (lib.text_models.length) {
-      const g = el("div", "lib-group"); g.append(el("h3", "", "Chat & text models"));
-      lib.text_models.forEach((m) => {
-        const it = el("div", "lib-item");
-        const nm = el("span", "", m.company + " / " + m.model);
-        if (m.incomplete) nm.append(el("span", "pill gated", "incomplete"));
-        it.append(nm, el("span", "meta", m.format + " · " + (m.quants.join(", ") || "n/a") +
-          " · " + fmtBytes(m.size) + " · " + new Date(m.mtime * 1000).toLocaleDateString()));
-        it.append(...mkActions(m.path));
-        g.append(it);
-      });
-      box.append(g);
-    }
-    if (lib.comfy_models.length) {
-      const g = el("div", "lib-group"); g.append(el("h3", "", "Image & video models (ComfyUI)"));
-      lib.comfy_models.forEach((m) => {
-        const it = el("div", "lib-item");
-        it.append(el("span", "", m.name),
-          el("span", "meta", m.subfolder + " · " + fmtBytes(m.size)));
-        it.append(...mkActions(m.path));
-        g.append(it);
-      });
-      box.append(g);
-    }
-    if (!lib.text_models.length && !lib.comfy_models.length) {
-      box.append(el("div", "msg", "Nothing downloaded yet to this destination."));
-    }
+    const count = lib.text_models.length + lib.comfy_models.length;
+    $("#libStats").textContent = count + (count === 1 ? " model · " : " models · ") +
+      fmtBytes(lib.total_bytes) + " · Free on drive: " + fmtBytes(lib.disk.free);
+    $("#libBar").hidden = false;
+    state.lib = lib;
+    renderLibrary();
   } catch (e) {
     box.replaceChildren(el("div", "msg", e.message));
   }
 }
+$("#libFilter").addEventListener("input", () => state.lib && renderLibrary());
+$("#libSort").addEventListener("change", () => state.lib && renderLibrary());
 
 // ---- boot ----
 (async function boot() {

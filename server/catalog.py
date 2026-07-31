@@ -1,7 +1,7 @@
 """Pure logic for ModelDock: parsing, filtering, routing. No I/O, no network."""
 import re
 
-QUANT_RE = re.compile(r"(?<![A-Za-z0-9])(I?Q\d(?:_[A-Z0-9]+)*|F16|F32|BF16)(?![A-Za-z0-9])")
+QUANT_RE = re.compile(r"(?<![A-Za-z0-9])(I?Q\d(?:_[A-Z0-9]+)*|F16|F32|BF16)(?![A-Za-z0-9])", re.I)
 
 
 def parse_quant(name):

@@ -89,6 +89,15 @@
 
   <section id="tab-library" class="pane">
     <div class="pane-head"><h2>Library</h2><div id="libStats"></div></div>
+    <div class="libbar" id="libBar" hidden>
+      <input id="libFilter" type="search" placeholder="Filter: name, company, capability, quant…">
+      <select id="libSort">
+        <option value="date">Newest first</option>
+        <option value="size">Largest first</option>
+        <option value="name">By model name</option>
+        <option value="company">By company</option>
+      </select>
+    </div>
     <div id="libList"></div>
   </section>
 

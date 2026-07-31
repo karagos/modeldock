@@ -286,6 +286,7 @@ async function openDetail(card, cardEl) {
       const btn = el("button", "primary", "Download");
       if (v.already) {
         btn.disabled = true; btn.textContent = "In library ✓";
+        btn.classList.add("owned");
         btn.title = "Already downloaded to this destination. Delete it in Library to re-download.";
       } else if (!v.will_fit_disk) { btn.disabled = true; btn.textContent = "Won't fit on drive"; }
       btn.addEventListener("click", async () => {

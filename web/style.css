@@ -57,6 +57,9 @@ button.primary {
   padding: 10px 22px; font-size: 15px; font-weight: 600; cursor: pointer;
 }
 button.primary:disabled { opacity: .5; cursor: default; }
+button.primary.owned:disabled {
+  background: #2e7a52; color: #eafff3; opacity: 1;
+}
 button.ghost {
   background: none; border: 1px solid var(--line); color: var(--muted);
   border-radius: 8px; padding: 6px 14px; cursor: pointer;

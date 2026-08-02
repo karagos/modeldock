@@ -45,7 +45,7 @@ def _next_url(link_header):
 
 
 def search_models(params, opener=None):
-    url = "%s/api/models?%s" % (BASE, urllib.parse.urlencode(params))
+    url = "%s/api/models?%s" % (BASE, urllib.parse.urlencode(params, doseq=True))
     return _get_json(url, opener)
 
 

@@ -29,6 +29,9 @@ hf_api.set_token(STORE.data["settings"].get("hf_token", ""))
 _DISCOVER_CACHE = {"ts": 0, "data": None}
 DISCOVER_TTL = 900
 LAB_AUTHORS = ("Qwen", "meta-llama", "google", "mistralai", "deepseek-ai", "unsloth")
+EXPAND_FIELDS = ["downloads", "downloadsAllTime", "createdAt", "lastModified",
+                 "likes", "tags", "gated"]
+PERIOD_DAYS = {"6m": 183, "1y": 365}
 
 
 def make_card(m, mtype):
@@ -37,6 +40,7 @@ def make_card(m, mtype):
     return {"id": mid, "company": mid.split("/")[0], "mtype": mtype,
             "downloads": m.get("downloads", 0), "likes": m.get("likes", 0),
             "updated": m.get("lastModified", ""), "created": m.get("createdAt", ""),
+            "downloads_all": m.get("downloadsAllTime"),
             "gated": bool(m.get("gated")),
             "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
             "params": p,
@@ -210,10 +214,12 @@ class Handler(BaseHTTPRequestHandler):
         caps = [c for c in q.get("capability", "").split(",") if c]
         want_moe = "moe" in caps
         sort = q.get("sort", "downloads")
+        period = q.get("period", "30d") if sort == "downloads" else "30d"
         want_bucket = q.get("size", "")
         # Size/MoE filtering happens after the fetch (HF has no param-count
         # filter), so pull a deeper page to avoid false "no results".
-        limit = 100 if (want_bucket or want_moe) else 30
+        # Period windows also post-filter, so they need depth too.
+        limit = 100 if (want_bucket or want_moe or period != "30d") else 30
         text_caps = [c for c in caps if c in catalog.TEXT_CAPS and c != "moe"]
         image_pipes = [c for c in caps if c in ("image-gen", "video-gen")]
         image_extras = [c for c in caps if c in ("lora", "upscaler")]
@@ -227,23 +233,44 @@ class Handler(BaseHTTPRequestHandler):
                 for pipe in (image_pipes or [None]):
                     queries.append((t, ([pipe] if pipe else []) + image_extras))
 
+        cutoff = ""
+        if period in PERIOD_DAYS:
+            cutoff = time.strftime("%Y-%m-%dT%H:%M:%S",
+                                   time.gmtime(time.time() - PERIOD_DAYS[period] * 86400))
         per_query = []
         for t, qcaps in queries:
             params = catalog.build_search_params(
                 q=q.get("q", ""), mtype=t, company=q.get("company", ""),
                 capabilities=qcaps, sort=sort, limit=limit,
                 domain=q.get("domain", ""))
+            variants = [params]
+            if period == "all":
+                # HF cannot sort by all-time downloads. Take a wide candidate
+                # pool (30-day top + all-time likes top) and re-rank ourselves.
+                for v in variants:
+                    v.pop("full", None)
+                    v["expand[]"] = EXPAND_FIELDS
+                    v["limit"] = "100"
+                likes_params = dict(params, sort="likes")
+                variants = [params, likes_params]
             cards = []
-            for m in hf_api.search_models(params):
-                card = make_card(m, t)
-                p = card["params"]
-                if want_moe and not (p and p["moe"]):
-                    continue
-                if want_bucket and card["bucket"] != want_bucket:
-                    continue
-                cards.append(card)
+            for prm in variants:
+                for m in hf_api.search_models(prm):
+                    card = make_card(m, t)
+                    p = card["params"]
+                    if want_moe and not (p and p["moe"]):
+                        continue
+                    if want_bucket and card["bucket"] != want_bucket:
+                        continue
+                    if cutoff and (card["created"] or "9999") < cutoff:
+                        continue
+                    cards.append(card)
             per_query.append(cards)
-        self._json({"results": catalog.merge_cards(per_query, sort)})
+        results = catalog.merge_cards(per_query, sort)
+        if period == "all":
+            results.sort(key=lambda c: c.get("downloads_all") or 0, reverse=True)
+            results = results[:60]
+        self._json({"results": results})
 
     def _api_discover(self):
         now = time.time()

@@ -3,7 +3,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
-  filters: { type: "gguf", company: "", capability: "", size: "", domain: "", sort: "downloads" },
+  filters: { type: "gguf", company: "", capability: "", size: "", domain: "", sort: "downloads", period: "30d" },
   sortTouched: false,
   settings: {}, system: {}, results: [], pollTimer: null, watch: new Set(),
 };
@@ -147,7 +147,14 @@ $("#filters").addEventListener("click", (ev) => {
     $$('[data-group="' + group + '"] .chip').forEach((c) => c.classList.remove("active"));
     if (!wasActive || group === "sort") chip.classList.add("active");
     state.filters[group] = chip.classList.contains("active") ? chip.dataset.v : "";
-    if (group === "sort") state.sortTouched = true;
+    if (group === "sort" || group === "period") state.sortTouched = true;
+    if (group === "sort" || group === "period") {
+      if (!row.querySelector(".chip.active")) {          // period/sort always keep one
+        chip.classList.add("active");
+        state.filters[group] = chip.dataset.v;
+      }
+      $("#periodRow").hidden = state.filters.sort !== "downloads";
+    }
   }
   if (group === "type") {
     syncTypeRows();
@@ -175,11 +182,13 @@ $("#homeBtn").addEventListener("click", () => {
   $("#q").value = "";
   state.filters.company = ""; state.filters.capability = "";
   state.filters.size = ""; state.filters.domain = "";
-  state.filters.sort = "downloads"; state.sortTouched = false;
+  state.filters.sort = "downloads"; state.filters.period = "30d"; state.sortTouched = false;
   $$("#filters .chip").forEach((c) => c.classList.remove("active"));
   document.querySelector('[data-group="type"] .chip[data-v="gguf"]').classList.add("active");
   state.filters.type = "gguf";
   document.querySelector('[data-group="sort"] .chip[data-v="downloads"]').classList.add("active");
+  document.querySelector('[data-group="period"] .chip[data-v="30d"]').classList.add("active");
+  $("#periodRow").hidden = false;
   $("#companyFree").value = "";
   syncTypeRows();
   runSearch();
@@ -194,7 +203,7 @@ async function runSearch() {
   const f = state.filters;
   const qs = new URLSearchParams({ q: $("#q").value.trim(), type: f.type,
     company: f.company, capability: f.capability, size: f.size, domain: f.domain,
-    sort: f.sort });
+    sort: f.sort, period: f.period });
   const dpane = $("#detail");
   dpane.hidden = true; state.detailFor = null;
   $("#results").after(dpane);   // rescue it before the grid is wiped
@@ -240,15 +249,26 @@ function buildCard(m, showFmt) {
   (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
   if (m.gated) name.append(el("span", "pill gated", "gated"));
   const date = (m.created || m.updated || "").slice(0, 10);
-  const meta = el("span", "meta", (m.downloads || 0).toLocaleString() + " downloads (30d) · " +
-    (m.likes || 0) + " ♥ · " + date);
+  const dl = (m.downloads_all != null)
+    ? m.downloads_all.toLocaleString() + " downloads (all time)"
+    : (m.downloads || 0).toLocaleString() + " downloads (30d)";
+  const meta = el("span", "meta", dl + " · " + (m.likes || 0) + " ♥ · " + date);
   c.append(name, meta, starBtn(m));
   c.addEventListener("click", () => openDetail(m, c));
   return c;
 }
 
-const SORT_TITLES = { downloads: "Most downloaded · last 30 days",
-  trending: "Trending right now", newest: "Newest releases · first published" };
+const PERIOD_TITLES = { "30d": "Most downloaded · last 30 days",
+  all: "Most downloaded · all time",
+  "6m": "Top models released in the last 6 months",
+  "1y": "Top models released in the last year" };
+const SORT_TITLES = { trending: "Trending right now",
+  newest: "Newest releases · first published" };
+function browseTitle() {
+  return state.filters.sort === "downloads"
+    ? PERIOD_TITLES[state.filters.period] || ""
+    : SORT_TITLES[state.filters.sort] || "";
+}
 
 function renderResults() {
   const box = $("#results"); box.replaceChildren();
@@ -258,7 +278,7 @@ function renderResults() {
     return;
   }
   if (!$("#q").value.trim()) {
-    box.append(el("div", "feed-head", SORT_TITLES[state.filters.sort] || ""));
+    box.append(el("div", "feed-head", browseTitle()));
   }
   const multiType = state.filters.type.includes(",");
   state.results.forEach((m) => box.append(buildCard(m, multiType)));

@@ -28,6 +28,8 @@
     <div class="searchbar">
       <input id="q" type="search" placeholder="Search models: qwen 3, flux, whisper…">
       <button id="goBtn" class="primary">Search</button>
+      <button id="homeBtn" class="ghost" hidden
+        title="Back to the start page: your watchlist, trending, fresh lab releases, most downloaded">⌂ Home</button>
     </div>
     <div class="filters" id="filters">
       <div class="chiprow" data-group="type" data-multi="1">
@@ -103,7 +105,13 @@
         <button class="chip active" data-v="downloads" title="Ranked by downloads in the last 30 days">Most downloaded · 30 days</button>
         <button class="chip" data-v="trending" title="Momentum right now: recent downloads and likes">Trending now</button>
         <button class="chip" data-v="newest" title="First published date: genuinely new releases">Newest releases</button>
-        <button id="homeBtn" class="ghost" hidden>⌂ Discover feed</button>
+      </div>
+      <div class="chiprow" data-group="period" id="periodRow">
+        <span class="lbl">Period</span>
+        <button class="chip active" data-v="30d" title="Hugging Face's download counter covers a rolling 30-day window">Last 30 days</button>
+        <button class="chip" data-v="all" title="True all-time download counts, re-ranked by ModelDock (best-effort: candidates come from the current top + most-liked lists)">All time</button>
+        <button class="chip" data-v="6m" title="Models first published in the last 6 months, ranked by downloads">Released ≤6 months</button>
+        <button class="chip" data-v="1y" title="Models first published in the last year, ranked by downloads">Released ≤1 year</button>
       </div>
     </div>
     <div id="results" class="cards"></div>

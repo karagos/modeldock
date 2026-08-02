@@ -1,5 +1,16 @@
 # ModelDock, by CAIO Group
 
+<div align="center">
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-f5c518)](LICENSE)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-000000?logo=apple&logoColor=white)](#start)
+[![Dependencies: zero](https://img.shields.io/badge/Dependencies-zero-2e7a52)](#start)
+[![Powered by Hugging Face](https://img.shields.io/badge/Powered%20by-Hugging%20Face-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co)
+[![Made by CAIO Group](https://img.shields.io/badge/Made%20by-CAIO%20Group-D97757)](https://wearecaio.com)
+[![GitHub stars](https://img.shields.io/github/stars/karagos/modeldock?style=social)](https://github.com/karagos/modeldock)
+
+</div>
+
 Download AI models from Hugging Face straight to any drive you choose. Built for keeping a large model collection on an external SSD instead of filling your Mac's internal disk.
 
 **Zero installation.** ModelDock runs on what macOS already ships. No Python installs, no packages, no accounts.

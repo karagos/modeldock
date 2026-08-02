@@ -106,7 +106,7 @@ def merge_cards(lists, sort):
     if sort == "downloads":
         out.sort(key=lambda m: m.get("downloads", 0), reverse=True)
     elif sort == "newest":
-        out.sort(key=lambda m: m.get("updated", ""), reverse=True)
+        out.sort(key=lambda m: m.get("created") or m.get("updated", ""), reverse=True)
     return out
 
 
@@ -114,7 +114,7 @@ DOMAIN_SEARCH = {"medical": "medical", "legal": "law", "finance": "finance",
                  "math": "math", "science": "science", "translation": "translation",
                  "roleplay": "roleplay"}
 
-SORT_MAP = {"downloads": "downloads", "trending": "trendingScore", "newest": "lastModified"}
+SORT_MAP = {"downloads": "downloads", "trending": "trendingScore", "newest": "createdAt"}
 CAP_SEARCH_EXTRA = {"thinking": "reasoning", "coding": "coder", "agentic": "tool", "upscaler": "upscale"}
 CAP_PIPELINE = {"vision": "image-text-to-text", "image-gen": "text-to-image", "video-gen": "text-to-video"}
 

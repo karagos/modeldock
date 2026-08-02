@@ -90,7 +90,7 @@ class TestCapabilities(unittest.TestCase):
         p = catalog.build_search_params(q="llama", mtype="mlx", company="",
                                         capabilities=[], sort="newest")
         self.assertEqual(p["filter"], "mlx")
-        self.assertEqual(p["sort"], "lastModified")
+        self.assertEqual(p["sort"], "createdAt")
 
     def test_domain_adds_search_term(self):
         p = catalog.build_search_params(q="", mtype="gguf", company="",

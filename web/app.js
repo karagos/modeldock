@@ -4,6 +4,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
   filters: { type: "gguf", company: "", capability: "", size: "", domain: "", sort: "downloads" },
+  sortTouched: false,
   settings: {}, system: {}, results: [], pollTimer: null, watch: new Set(),
 };
 
@@ -146,6 +147,7 @@ $("#filters").addEventListener("click", (ev) => {
     $$('[data-group="' + group + '"] .chip').forEach((c) => c.classList.remove("active"));
     if (!wasActive || group === "sort") chip.classList.add("active");
     state.filters[group] = chip.classList.contains("active") ? chip.dataset.v : "";
+    if (group === "sort") state.sortTouched = true;
   }
   if (group === "type") {
     syncTypeRows();
@@ -167,6 +169,19 @@ $("#filters").addEventListener("click", (ev) => {
 $("#companyFree").addEventListener("change", () => {
   $$('[data-group="company"] .chip').forEach((c) => c.classList.remove("active"));
   state.filters.company = $("#companyFree").value.trim();
+  runSearch();
+});
+$("#homeBtn").addEventListener("click", () => {
+  $("#q").value = "";
+  state.filters.company = ""; state.filters.capability = "";
+  state.filters.size = ""; state.filters.domain = "";
+  state.filters.sort = "downloads"; state.sortTouched = false;
+  $$("#filters .chip").forEach((c) => c.classList.remove("active"));
+  document.querySelector('[data-group="type"] .chip[data-v="gguf"]').classList.add("active");
+  state.filters.type = "gguf";
+  document.querySelector('[data-group="sort"] .chip[data-v="downloads"]').classList.add("active");
+  $("#companyFree").value = "";
+  syncTypeRows();
   runSearch();
 });
 $("#goBtn").addEventListener("click", runSearch);
@@ -224,18 +239,26 @@ function buildCard(m, showFmt) {
   if (m.bucket) name.append(el("span", "pill", m.bucket.replace("<=", "≤")));
   (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
   if (m.gated) name.append(el("span", "pill gated", "gated"));
-  const meta = el("span", "meta", (m.downloads || 0).toLocaleString() + " downloads · " +
-    (m.likes || 0) + " ♥ · " + (m.updated || "").slice(0, 10));
+  const date = (m.created || m.updated || "").slice(0, 10);
+  const meta = el("span", "meta", (m.downloads || 0).toLocaleString() + " downloads (30d) · " +
+    (m.likes || 0) + " ♥ · " + date);
   c.append(name, meta, starBtn(m));
   c.addEventListener("click", () => openDetail(m, c));
   return c;
 }
 
+const SORT_TITLES = { downloads: "Most downloaded · last 30 days",
+  trending: "Trending right now", newest: "Newest releases · first published" };
+
 function renderResults() {
   const box = $("#results"); box.replaceChildren();
+  $("#homeBtn").hidden = false;
   if (!state.results.length) {
     box.append(el("div", "msg", "No models found. Try fewer filters or another search term."));
     return;
+  }
+  if (!$("#q").value.trim()) {
+    box.append(el("div", "feed-head", SORT_TITLES[state.filters.sort] || ""));
   }
   const multiType = state.filters.type.includes(",");
   state.results.forEach((m) => box.append(buildCard(m, multiType)));
@@ -243,11 +266,13 @@ function renderResults() {
 
 function searchIsEmpty() {
   const f = state.filters;
-  return !$("#q").value.trim() && !f.company && !f.capability && !f.size && !f.domain;
+  return !$("#q").value.trim() && !f.company && !f.capability && !f.size && !f.domain &&
+    !state.sortTouched;
 }
 
 async function showDiscover() {
   const box = $("#results");
+  $("#homeBtn").hidden = true;
   box.replaceChildren(el("div", "msg", "Loading discovery feed…"));
   try {
     const [wl, feed] = await Promise.all([api("/api/watchlist"), api("/api/discover")]);

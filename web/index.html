@@ -100,9 +100,10 @@
       </div>
       <div class="chiprow" data-group="sort">
         <span class="lbl">Sort</span>
-        <button class="chip active" data-v="downloads">Most downloaded</button>
-        <button class="chip" data-v="trending">Trending</button>
-        <button class="chip" data-v="newest">Newest</button>
+        <button class="chip active" data-v="downloads" title="Ranked by downloads in the last 30 days">Most downloaded · 30 days</button>
+        <button class="chip" data-v="trending" title="Momentum right now: recent downloads and likes">Trending now</button>
+        <button class="chip" data-v="newest" title="First published date: genuinely new releases">Newest releases</button>
+        <button id="homeBtn" class="ghost" hidden>⌂ Discover feed</button>
       </div>
     </div>
     <div id="results" class="cards"></div>

@@ -36,7 +36,8 @@ def make_card(m, mtype):
     p = catalog.parse_params(mid)
     return {"id": mid, "company": mid.split("/")[0], "mtype": mtype,
             "downloads": m.get("downloads", 0), "likes": m.get("likes", 0),
-            "updated": m.get("lastModified", ""), "gated": bool(m.get("gated")),
+            "updated": m.get("lastModified", ""), "created": m.get("createdAt", ""),
+            "gated": bool(m.get("gated")),
             "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
             "params": p,
             "bucket": catalog.size_bucket(p["total_b"]) if p else None}
@@ -257,12 +258,12 @@ class Handler(BaseHTTPRequestHandler):
         labs = []
         for author in LAB_AUTHORS:
             labs += [make_card(m, "gguf") for m in hf_api.search_models(
-                dict(base, sort="lastModified", limit="2", author=author))]
-        labs.sort(key=lambda c: c["updated"], reverse=True)
+                dict(base, sort="createdAt", limit="2", author=author))]
+        labs.sort(key=lambda c: c["created"] or c["updated"], reverse=True)
         data = {"sections": [
-            {"title": "Trending now", "cards": trending},
-            {"title": "Fresh from the labs", "cards": labs[:8]},
-            {"title": "Most downloaded all-time", "cards": top}]}
+            {"title": "Trending right now", "cards": trending},
+            {"title": "Fresh from the labs · latest releases", "cards": labs[:8]},
+            {"title": "Most downloaded · last 30 days", "cards": top}]}
         _DISCOVER_CACHE.update(ts=now, data=data)
         self._json(data)
 

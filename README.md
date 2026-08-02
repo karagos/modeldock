@@ -52,6 +52,6 @@ YourSSD/Models/
 
 ## For maintenance sessions
 
-- Tests: `/usr/bin/python3 -m unittest discover -s tests -v` (42 tests, no installs).
+- Tests: `/usr/bin/python3 -m unittest discover -s tests -v` (56 tests, no installs).
 - Spec: `SPEC.md` · Plan: `specs/2026-07-30-modeldock-implementation-plan.md`.
 - State: `data/state.json` (settings + download queue). Deleting it resets settings; it never contains models.

@@ -5,18 +5,20 @@ import threading
 
 DEFAULT_SETTINGS = {"destination": "", "recent_destinations": [],
                     "preferred_quant": "Q4", "theme": "dark",
-                    "ram_override_gb": 0}  # 0 = use this Mac's detected RAM
+                    "ram_override_gb": 0,  # 0 = use this Mac's detected RAM
+                    "hf_token": ""}
 
 
 class Store:
     def __init__(self, path):
         self.path = path
         self._lock = threading.RLock()
-        self.data = {"settings": dict(DEFAULT_SETTINGS), "queue": []}
+        self.data = {"settings": dict(DEFAULT_SETTINGS), "queue": [], "watchlist": []}
         try:
             with open(path) as f:
                 loaded = json.load(f)
             self.data["queue"] = loaded.get("queue", [])
+            self.data["watchlist"] = loaded.get("watchlist", [])
             merged = dict(DEFAULT_SETTINGS)
             merged.update(loaded.get("settings", {}))
             self.data["settings"] = merged

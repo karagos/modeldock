@@ -24,6 +24,22 @@ MIME = {".html": "text/html", ".css": "text/css", ".js": "application/javascript
 
 STORE = Store(os.path.join(ROOT, "data", "state.json"))
 MGR = DownloadManager(STORE)
+hf_api.set_token(STORE.data["settings"].get("hf_token", ""))
+
+_DISCOVER_CACHE = {"ts": 0, "data": None}
+DISCOVER_TTL = 900
+LAB_AUTHORS = ("Qwen", "meta-llama", "google", "mistralai", "deepseek-ai", "unsloth")
+
+
+def make_card(m, mtype):
+    mid = m.get("id", "")
+    p = catalog.parse_params(mid)
+    return {"id": mid, "company": mid.split("/")[0], "mtype": mtype,
+            "downloads": m.get("downloads", 0), "likes": m.get("likes", 0),
+            "updated": m.get("lastModified", ""), "gated": bool(m.get("gated")),
+            "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
+            "params": p,
+            "bucket": catalog.size_bucket(p["total_b"]) if p else None}
 
 
 def mac_ram():
@@ -134,6 +150,10 @@ class Handler(BaseHTTPRequestHandler):
                 for m in out["text_models"]:
                     m["fits"] = catalog.fits_badge(m["size"], effective_ram())
                 self._json(out)
+            elif route == "/api/discover":
+                self._api_discover()
+            elif route == "/api/watchlist":
+                self._json({"watchlist": STORE.data["watchlist"]})
             elif route == "/api/settings":
                 self._json(STORE.data["settings"])
             elif route == "/api/system":
@@ -166,6 +186,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._api_pick_folder()
             elif route == "/api/library/delete":
                 self._api_delete(body)
+            elif route == "/api/library/verify":
+                self._api_verify(body)
+            elif route == "/api/watchlist":
+                self._api_watchlist_add(body)
+            elif route == "/api/watchlist/remove":
+                self._api_watchlist_remove(body)
             elif route == "/api/reveal":
                 self._api_reveal(body)
             else:
@@ -207,29 +233,101 @@ class Handler(BaseHTTPRequestHandler):
                 capabilities=qcaps, sort=sort, limit=limit)
             cards = []
             for m in hf_api.search_models(params):
-                mid = m.get("id", "")
-                p = catalog.parse_params(mid)
-                bucket = catalog.size_bucket(p["total_b"]) if p else None
+                card = make_card(m, t)
+                p = card["params"]
                 if want_moe and not (p and p["moe"]):
                     continue
-                if want_bucket and bucket != want_bucket:
+                if want_bucket and card["bucket"] != want_bucket:
                     continue
-                cards.append({
-                    "id": mid, "company": mid.split("/")[0], "mtype": t,
-                    "downloads": m.get("downloads", 0), "likes": m.get("likes", 0),
-                    "updated": m.get("lastModified", ""), "gated": bool(m.get("gated")),
-                    "caps": sorted(catalog.detect_capabilities(mid, m.get("tags", []))),
-                    "params": p, "bucket": bucket})
+                cards.append(card)
             per_query.append(cards)
         self._json({"results": catalog.merge_cards(per_query, sort)})
+
+    def _api_discover(self):
+        now = time.time()
+        if _DISCOVER_CACHE["data"] and now - _DISCOVER_CACHE["ts"] < DISCOVER_TTL:
+            self._json(_DISCOVER_CACHE["data"])
+            return
+        base = {"filter": "gguf", "limit": "8", "direction": "-1", "full": "true"}
+        trending = [make_card(m, "gguf") for m in hf_api.search_models(
+            dict(base, sort="trendingScore"))]
+        top = [make_card(m, "gguf") for m in hf_api.search_models(
+            dict(base, sort="downloads"))]
+        labs = []
+        for author in LAB_AUTHORS:
+            labs += [make_card(m, "gguf") for m in hf_api.search_models(
+                dict(base, sort="lastModified", limit="2", author=author))]
+        labs.sort(key=lambda c: c["updated"], reverse=True)
+        data = {"sections": [
+            {"title": "Trending now", "cards": trending},
+            {"title": "Fresh from the labs", "cards": labs[:8]},
+            {"title": "Most downloaded all-time", "cards": top}]}
+        _DISCOVER_CACHE.update(ts=now, data=data)
+        self._json(data)
+
+    def _api_watchlist_add(self, body):
+        wl = STORE.data["watchlist"]
+        if not any(w["id"] == body["id"] for w in wl):
+            wl.insert(0, {"id": body["id"], "mtype": body.get("mtype", "gguf"),
+                          "added": int(time.time())})
+            STORE.save()
+        self._json({"watchlist": wl})
+
+    def _api_watchlist_remove(self, body):
+        STORE.data["watchlist"] = [w for w in STORE.data["watchlist"]
+                                   if w["id"] != body.get("id")]
+        STORE.save()
+        self._json({"watchlist": STORE.data["watchlist"]})
+
+    def _api_verify(self, body):
+        from downloader import MANIFEST, sha256_file
+        path = body.get("path", "")
+        if not inside_models(path) or not os.path.isdir(path):
+            self._json({"error": "Refusing: path is not inside the models folder."}, 400)
+            return
+        manifest_path = os.path.join(path, MANIFEST)
+        try:
+            with open(manifest_path) as fh:
+                recorded = json.load(fh).get("files", {})
+        except (OSError, ValueError):
+            self._json({"no_record": True,
+                        "note": "No checksum record for this model (downloaded before "
+                                "verification records existed). Re-downloads will have one."})
+            return
+        results = []
+        for name, rec in sorted(recorded.items()):
+            fp = os.path.join(path, name)
+            if not os.path.exists(fp):
+                results.append({"file": name, "status": "missing"})
+            elif os.path.getsize(fp) != rec.get("size"):
+                results.append({"file": name, "status": "corrupt (wrong size)"})
+            elif rec.get("sha256") and sha256_file(fp) != rec["sha256"]:
+                results.append({"file": name, "status": "corrupt (checksum mismatch)"})
+            else:
+                results.append({"file": name, "status": "ok"})
+        self._json({"results": results,
+                    "healthy": all(r["status"] == "ok" for r in results)})
 
     def _api_model(self):
         q = self._query()
         mid, mtype = q["id"], q.get("type", "gguf")
         capability = q.get("capability", "")
         info = hf_api.model_info(mid)
-        # Gated repos 401 on the tree endpoint — return the notice without touching it.
-        tree = [] if info.get("gated") else hf_api.model_tree(mid)
+        # Gated repos 401 on the tree endpoint for anonymous users. With a token
+        # we try anyway; a 401/403 then means the license was not accepted yet.
+        gated = bool(info.get("gated"))
+        token = STORE.data["settings"].get("hf_token", "")
+        tree, gated_reason = [], None
+        if not gated or token:
+            try:
+                tree = hf_api.model_tree(mid)
+                gated = False
+            except urllib.error.HTTPError as e:
+                if e.code in (401, 403) and gated:
+                    gated_reason = ("Your Hugging Face token does not have access yet. "
+                                    "Open the model page and accept its license first.")
+                else:
+                    raise
         d = dest()
         free = library.disk_stats(d)["free"] if d and os.path.isdir(d) else 0
         variants = []
@@ -259,9 +357,11 @@ class Handler(BaseHTTPRequestHandler):
             v["already"] = variant_downloaded(d, mid, mtype, capability, v["files"])
         card = info.get("cardData") or {}
         p = catalog.parse_params(mid)
-        description = "" if info.get("gated") else catalog.readme_excerpt(hf_api.model_readme(mid))
+        description = "" if gated else catalog.readme_excerpt(hf_api.model_readme(mid))
         self._json({
-            "id": mid, "company": mid.split("/")[0], "gated": bool(info.get("gated")),
+            "id": mid, "company": mid.split("/")[0], "gated": gated,
+            "gated_reason": gated_reason,
+            "license_verdict": catalog.license_verdict(card.get("license")),
             "description": description,
             "hf_url": "https://huggingface.co/" + mid,
             "downloads": info.get("downloads", 0), "likes": info.get("likes", 0),
@@ -329,6 +429,9 @@ class Handler(BaseHTTPRequestHandler):
         for k in ("preferred_quant", "theme"):
             if k in body:
                 s[k] = body[k]
+        if "hf_token" in body:
+            s["hf_token"] = str(body["hf_token"]).strip()
+            hf_api.set_token(s["hf_token"])
         if "ram_override_gb" in body:
             try:
                 s["ram_override_gb"] = max(0, int(body["ram_override_gb"]))

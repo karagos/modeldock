@@ -213,3 +213,22 @@ def group_gguf_files(files):
         out.append({"label": label, "quant": parse_quant(key),
                     "size": sum(x["size"] for x in fs), "files": fs})
     return out
+
+
+LICENSE_OPEN = {"apache-2.0", "mit", "bsd", "bsd-2-clause", "bsd-3-clause",
+                "cc-by-4.0", "cc0-1.0", "unlicense", "isc", "artistic-2.0"}
+
+
+def license_verdict(lic):
+    """Plain-language license bucket for consultants: open / nc / custom / None."""
+    if not lic:
+        return None
+    l = str(lic).lower().strip()
+    if l in ("unknown", "n/a"):
+        return None
+    if l in LICENSE_OPEN:
+        return {"level": "open", "text": "Commercial use OK"}
+    parts = set(l.replace("_", "-").split("-"))
+    if "nc" in parts or "non-commercial" in l or "research" in l:
+        return {"level": "nc", "text": "Non-commercial only"}
+    return {"level": "custom", "text": "Custom license, review terms"}

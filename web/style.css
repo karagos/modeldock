@@ -160,6 +160,22 @@ button.ghost {
   width: 26px; height: 14px; border: 1px solid var(--accent); border-radius: 5px;
   background: var(--accent-soft); flex-shrink: 0; margin-top: 3px;
 }
+#hfToken {
+  flex: 1; background: var(--bg3); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 8px 12px; font-size: 14px;
+}
+.star {
+  background: none; border: none; cursor: pointer; font-size: 16px;
+  color: var(--muted); padding: 0 4px; flex-shrink: 0;
+}
+.star.on { color: var(--accent); }
+.feed-head {
+  margin: 22px 0 8px; font-size: 14px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.pill.lic-open { background: #3f9d6b22; color: var(--green); }
+.pill.lic-custom { background: #d99a3d22; color: var(--orange); }
+.pill.lic-nc { background: #cc544922; color: var(--red); }
 .msg { color: var(--muted); padding: 30px 0; text-align: center; }
 #toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

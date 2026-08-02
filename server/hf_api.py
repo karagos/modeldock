@@ -7,12 +7,26 @@ import urllib.request
 BASE = "https://huggingface.co"
 HEADERS = {"User-Agent": "ModelDock/1.0 (local; CAIO)"}
 TIMEOUT = 25
+_TOKEN = ""
+
+
+def set_token(token):
+    """Optional Hugging Face access token (unlocks gated models)."""
+    global _TOKEN
+    _TOKEN = (token or "").strip()
+
+
+def _headers():
+    h = dict(HEADERS)
+    if _TOKEN:
+        h["Authorization"] = "Bearer " + _TOKEN
+    return h
 MAX_PAGES = 20
 
 
 def _get(url, opener=None):
     """Return (parsed JSON body, Link header string)."""
-    req = urllib.request.Request(url, headers=HEADERS)
+    req = urllib.request.Request(url, headers=_headers())
     op = opener or urllib.request.urlopen
     with op(req, timeout=TIMEOUT) as r:
         link = r.headers.get("Link", "") if hasattr(r, "headers") else ""
@@ -60,7 +74,7 @@ def model_tree(model_id, opener=None):
 def model_readme(model_id, opener=None):
     """Raw README markdown, or '' when unavailable (gated, missing, network)."""
     req = urllib.request.Request("%s/%s/raw/main/README.md" % (BASE, model_id),
-                                 headers=HEADERS)
+                                 headers=_headers())
     op = opener or urllib.request.urlopen
     try:
         with op(req, timeout=10) as r:

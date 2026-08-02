@@ -88,7 +88,9 @@
   </section>
 
   <section id="tab-library" class="pane">
-    <div class="pane-head"><h2>Library</h2><div id="libStats"></div></div>
+    <div class="pane-head"><h2>Library</h2>
+      <div class="row"><button id="libCopy" class="ghost">Copy as Markdown</button>
+      <div id="libStats"></div></div></div>
     <div class="libbar" id="libBar" hidden>
       <input id="libFilter" type="search" placeholder="Filter: name, company, capability, quant…">
       <select id="libSort">
@@ -137,6 +139,15 @@
         <option value="192">192 GB</option><option value="256">256 GB</option>
         <option value="512">512 GB</option>
       </select>
+    </div>
+    <div class="setting">
+      <h3>Hugging Face account (optional)</h3>
+      <p class="hint">Unlocks gated models (Meta Llama, Google Gemma, Flux dev). Create a free
+      token at <a class="hflink" href="https://huggingface.co/settings/tokens" target="_blank"
+      rel="noopener">huggingface.co/settings/tokens</a>, accept a model's license on its page
+      once, then paste the token here. It is stored only on this Mac.</p>
+      <div class="row"><input id="hfToken" type="password" placeholder="hf_…">
+      <button id="tokenBtn" class="primary">Save token</button></div>
     </div>
     <div class="setting">
       <h3>What the colors mean (in a model's file list)</h3>

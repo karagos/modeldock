@@ -4,7 +4,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
   filters: { type: "gguf", company: "", capability: "", size: "", sort: "downloads" },
-  settings: {}, system: {}, results: [], pollTimer: null,
+  settings: {}, system: {}, results: [], pollTimer: null, watch: new Set(),
 };
 
 async function api(path, opts) {
@@ -93,7 +93,10 @@ async function loadSettings() {
   $$("#quantPref .chip").forEach((c) =>
     c.classList.toggle("active", c.dataset.v === state.settings.preferred_quant));
   $("#ramSel").value = String(state.settings.ram_override_gb || 0);
+  $("#hfToken").value = state.settings.hf_token || "";
 }
+$("#tokenBtn").addEventListener("click", () =>
+  saveSettings({ hf_token: $("#hfToken").value.trim() }));
 $("#ramSel").addEventListener("change", () =>
   saveSettings({ ram_override_gb: Number($("#ramSel").value) }));
 async function saveSettings(patch) {
@@ -179,6 +182,7 @@ async function runSearch() {
   const dpane = $("#detail");
   dpane.hidden = true; state.detailFor = null;
   $("#results").after(dpane);   // rescue it before the grid is wiped
+  if (searchIsEmpty()) { showDiscover(); return; }
   $("#results").replaceChildren(el("div", "msg", "Searching Hugging Face…"));
   try {
     const data = await api("/api/search?" + qs);
@@ -189,28 +193,77 @@ async function runSearch() {
   }
 }
 
+function starBtn(m) {
+  const b = el("button", "star" + (state.watch.has(m.id) ? " on" : ""),
+               state.watch.has(m.id) ? "★" : "☆");
+  b.title = "Watchlist: save for later without downloading";
+  b.addEventListener("click", async (ev) => {
+    ev.stopPropagation();
+    try {
+      if (state.watch.has(m.id)) {
+        await post("/api/watchlist/remove", { id: m.id });
+        state.watch.delete(m.id);
+      } else {
+        await post("/api/watchlist", { id: m.id, mtype: m.mtype || "gguf" });
+        state.watch.add(m.id);
+      }
+      b.textContent = state.watch.has(m.id) ? "★" : "☆";
+      b.classList.toggle("on", state.watch.has(m.id));
+    } catch (e) { toast(e.message, true); }
+  });
+  return b;
+}
+
+function buildCard(m, showFmt) {
+  const FMT = { gguf: "GGUF", mlx: "MLX", image: "IMG" };
+  const c = el("div", "card");
+  const name = el("span", "name", m.id);
+  if (showFmt && FMT[m.mtype]) name.append(el("span", "pill fmt", FMT[m.mtype]));
+  if (m.params && m.params.moe) name.append(el("span", "pill moe", "MoE"));
+  if (m.bucket) name.append(el("span", "pill", m.bucket.replace("<=", "≤")));
+  (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
+  if (m.gated) name.append(el("span", "pill gated", "gated"));
+  const meta = el("span", "meta", (m.downloads || 0).toLocaleString() + " downloads · " +
+    (m.likes || 0) + " ♥ · " + (m.updated || "").slice(0, 10));
+  c.append(name, meta, starBtn(m));
+  c.addEventListener("click", () => openDetail(m, c));
+  return c;
+}
+
 function renderResults() {
   const box = $("#results"); box.replaceChildren();
   if (!state.results.length) {
     box.append(el("div", "msg", "No models found. Try fewer filters or another search term."));
     return;
   }
-  const FMT = { gguf: "GGUF", mlx: "MLX", image: "IMG" };
   const multiType = state.filters.type.includes(",");
-  state.results.forEach((m) => {
-    const c = el("div", "card");
-    const name = el("span", "name", m.id);
-    if (multiType && FMT[m.mtype]) name.append(el("span", "pill fmt", FMT[m.mtype]));
-    if (m.params && m.params.moe) name.append(el("span", "pill moe", "MoE"));
-    if (m.bucket) name.append(el("span", "pill", m.bucket.replace("<=", "≤")));
-    (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
-    if (m.gated) name.append(el("span", "pill gated", "requires HF account"));
-    const meta = el("span", "meta",
-      m.downloads.toLocaleString() + " downloads · " + m.likes + " ♥ · " + (m.updated || "").slice(0, 10));
-    c.append(name, meta);
-    c.addEventListener("click", () => openDetail(m, c));
-    box.append(c);
-  });
+  state.results.forEach((m) => box.append(buildCard(m, multiType)));
+}
+
+function searchIsEmpty() {
+  const f = state.filters;
+  return !$("#q").value.trim() && !f.company && !f.capability && !f.size;
+}
+
+async function showDiscover() {
+  const box = $("#results");
+  box.replaceChildren(el("div", "msg", "Loading discovery feed…"));
+  try {
+    const [wl, feed] = await Promise.all([api("/api/watchlist"), api("/api/discover")]);
+    state.watch = new Set(wl.watchlist.map((w) => w.id));
+    box.replaceChildren();
+    if (wl.watchlist.length) {
+      box.append(el("div", "feed-head", "⭐ Your watchlist"));
+      wl.watchlist.forEach((w) => box.append(buildCard(
+        { id: w.id, mtype: w.mtype, downloads: 0, likes: 0, updated: "" }, false)));
+    }
+    feed.sections.forEach((sec) => {
+      box.append(el("div", "feed-head", sec.title));
+      sec.cards.forEach((m) => box.append(buildCard(m, false)));
+    });
+  } catch (e) {
+    box.replaceChildren(el("div", "msg", e.message));
+  }
 }
 
 async function openDetail(card, cardEl) {
@@ -245,6 +298,8 @@ async function openDetail(card, cardEl) {
     if (m.params && m.params.moe) badges.append(el("span", "pill moe", "MoE"));
     (m.caps || []).forEach((cap) => CAP_LABELS[cap] && badges.append(el("span", "pill", CAP_LABELS[cap])));
     if (m.gated) badges.append(el("span", "pill gated", "requires HF account"));
+    if (m.license_verdict) badges.append(
+      el("span", "pill lic-" + m.license_verdict.level, m.license_verdict.text));
     const link = el("a", "hflink", "Open on Hugging Face ↗");
     link.href = m.hf_url || "https://huggingface.co/" + m.id;
     link.target = "_blank"; link.rel = "noopener";
@@ -257,9 +312,9 @@ async function openDetail(card, cardEl) {
     if (m.moe_note) d.append(el("div", "dmeta", "Mixture-of-Experts: " + m.moe_note));
     if (m.description) d.append(el("p", "desc", m.description));
     if (m.gated) {
-      d.append(el("div", "msg",
-        "This model requires a free Hugging Face account and license acceptance on huggingface.co. " +
-        "ModelDock v1 supports open models only. Pick a non-gated alternative."));
+      d.append(el("div", "msg", m.gated_reason ||
+        "This model is gated: it needs a free Hugging Face account and a saved token " +
+        "(Settings), plus accepting the license on the model's page."));
       return;
     }
     if (!m.variants.length) {
@@ -381,8 +436,34 @@ function libActions(path) {
     try { await post("/api/library/delete", { path }); toast("Moved to Trash"); state.lib = null; loadLibrary(); }
     catch (e) { toast(e.message, true); }
   });
-  return [rev, del];
+  const ver = el("button", "ghost", "Verify");
+  ver.title = "Re-check this model against its recorded checksums (big models take a while)";
+  ver.addEventListener("click", async () => {
+    ver.textContent = "Verifying…"; ver.disabled = true;
+    try {
+      const r = await post("/api/library/verify", { path });
+      if (r.no_record) toast(r.note);
+      else if (r.healthy) toast(r.results.length + " file(s) verified, all healthy ✓");
+      else toast("Problem found: " + r.results.filter((x) => x.status !== "ok")
+        .map((x) => x.file + " " + x.status).join("; "), true);
+    } catch (e) { toast(e.message, true); }
+    ver.textContent = "Verify"; ver.disabled = false;
+  });
+  return [ver, rev, del];
 }
+
+$("#libCopy").addEventListener("click", async () => {
+  if (!state.lib) return;
+  const rows = state.lib.text_models.map((m) =>
+    "| " + m.company + "/" + m.model + " | " + m.format + " " + (m.quants.join(", ") || "") +
+    " | " + fmtBytes(m.size) + " | " + ((m.params && m.params.total_b) ? m.params.total_b + "B" : "") +
+    ((m.params && m.params.moe) ? " MoE" : "") + " | " + (m.caps || []).join(", ") +
+    " | https://huggingface.co/" + m.company + "/" + m.model.replace(/-GGUF$|-MLX.*$/i, "") + " |");
+  const md = ["| Model | Format | Size | Params | Capabilities | Link |",
+              "|---|---|---|---|---|---|"].concat(rows).join("\n");
+  try { await navigator.clipboard.writeText(md); toast("Library copied as Markdown"); }
+  catch (e) { toast("Could not copy: " + e.message, true); }
+});
 
 function renderLibrary() {
   const lib = state.lib;
@@ -468,4 +549,5 @@ $("#libSort").addEventListener("change", () => state.lib && renderLibrary());
   await refreshSystem();
   setInterval(refreshSystem, 5000);
   pollDownloads();
+  showDiscover();
 })();

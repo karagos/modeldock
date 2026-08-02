@@ -188,5 +188,23 @@ class TestCapFamilies(unittest.TestCase):
         self.assertNotIn("thinking", catalog.IMAGE_CAPS)
 
 
+class TestLicenseVerdict(unittest.TestCase):
+    def test_open(self):
+        self.assertEqual(catalog.license_verdict("apache-2.0")["level"], "open")
+        self.assertEqual(catalog.license_verdict("MIT")["level"], "open")
+
+    def test_non_commercial(self):
+        self.assertEqual(catalog.license_verdict("cc-by-nc-4.0")["level"], "nc")
+
+    def test_custom(self):
+        self.assertEqual(catalog.license_verdict("llama3.1")["level"], "custom")
+        self.assertEqual(catalog.license_verdict("gemma")["level"], "custom")
+        self.assertEqual(catalog.license_verdict("other")["level"], "custom")
+
+    def test_unknown_is_silent(self):
+        self.assertIsNone(catalog.license_verdict("unknown"))
+        self.assertIsNone(catalog.license_verdict(""))
+
+
 if __name__ == "__main__":
     unittest.main()

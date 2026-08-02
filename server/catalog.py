@@ -110,12 +110,16 @@ def merge_cards(lists, sort):
     return out
 
 
+DOMAIN_SEARCH = {"medical": "medical", "legal": "law", "finance": "finance",
+                 "math": "math", "science": "science", "translation": "translation",
+                 "roleplay": "roleplay"}
+
 SORT_MAP = {"downloads": "downloads", "trending": "trendingScore", "newest": "lastModified"}
 CAP_SEARCH_EXTRA = {"thinking": "reasoning", "coding": "coder", "agentic": "tool", "upscaler": "upscale"}
 CAP_PIPELINE = {"vision": "image-text-to-text", "image-gen": "text-to-image", "video-gen": "text-to-video"}
 
 
-def build_search_params(q="", mtype="gguf", company="", capabilities=(), sort="downloads", limit=30):
+def build_search_params(q="", mtype="gguf", company="", capabilities=(), sort="downloads", limit=30, domain=""):
     """Capabilities combine: search terms accumulate, vision sets the pipeline tag.
     'moe' is intentionally NOT a query param — it's a post-fetch filter."""
     caps = set(capabilities)
@@ -123,6 +127,8 @@ def build_search_params(q="", mtype="gguf", company="", capabilities=(), sort="d
     search_terms = [q] if q else []
     for c in sorted(caps & set(CAP_SEARCH_EXTRA)):
         search_terms.append(CAP_SEARCH_EXTRA[c])
+    if domain in DOMAIN_SEARCH:
+        search_terms.append(DOMAIN_SEARCH[domain])
     if mtype == "gguf":
         p["filter"] = "gguf"
     elif mtype == "mlx":

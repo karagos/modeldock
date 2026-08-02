@@ -3,7 +3,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
-  filters: { type: "gguf", company: "", capability: "", size: "", sort: "downloads" },
+  filters: { type: "gguf", company: "", capability: "", size: "", domain: "", sort: "downloads" },
   settings: {}, system: {}, results: [], pollTimer: null, watch: new Set(),
 };
 
@@ -143,9 +143,9 @@ $("#filters").addEventListener("click", (ev) => {
       .map((c) => c.dataset.v).join(",");
   } else {
     const wasActive = chip.classList.contains("active");
-    row.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    $$('[data-group="' + group + '"] .chip').forEach((c) => c.classList.remove("active"));
     if (!wasActive || group === "sort") chip.classList.add("active");
-    state.filters[group] = row.querySelector(".chip.active")?.dataset.v || "";
+    state.filters[group] = chip.classList.contains("active") ? chip.dataset.v : "";
   }
   if (group === "type") {
     syncTypeRows();
@@ -178,7 +178,8 @@ const CAP_LABELS = { vision: "Vision", thinking: "Thinking", agentic: "Agentic",
 async function runSearch() {
   const f = state.filters;
   const qs = new URLSearchParams({ q: $("#q").value.trim(), type: f.type,
-    company: f.company, capability: f.capability, size: f.size, sort: f.sort });
+    company: f.company, capability: f.capability, size: f.size, domain: f.domain,
+    sort: f.sort });
   const dpane = $("#detail");
   dpane.hidden = true; state.detailFor = null;
   $("#results").after(dpane);   // rescue it before the grid is wiped
@@ -242,7 +243,7 @@ function renderResults() {
 
 function searchIsEmpty() {
   const f = state.filters;
-  return !$("#q").value.trim() && !f.company && !f.capability && !f.size;
+  return !$("#q").value.trim() && !f.company && !f.capability && !f.size && !f.domain;
 }
 
 async function showDiscover() {

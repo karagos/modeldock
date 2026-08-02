@@ -92,6 +92,15 @@ class TestCapabilities(unittest.TestCase):
         self.assertEqual(p["filter"], "mlx")
         self.assertEqual(p["sort"], "lastModified")
 
+    def test_domain_adds_search_term(self):
+        p = catalog.build_search_params(q="", mtype="gguf", company="",
+                                        capabilities=[], sort="downloads", domain="medical")
+        self.assertIn("medical", p["search"])
+        p = catalog.build_search_params(q="qwen", mtype="gguf", company="",
+                                        capabilities=["thinking"], sort="downloads", domain="legal")
+        self.assertIn("law", p["search"])
+        self.assertIn("reasoning", p["search"])
+
     def test_moe_is_not_a_query_param(self):
         p = catalog.build_search_params(q="", mtype="gguf", company="",
                                         capabilities=["moe", "coding"], sort="downloads")

@@ -230,7 +230,8 @@ class Handler(BaseHTTPRequestHandler):
         for t, qcaps in queries:
             params = catalog.build_search_params(
                 q=q.get("q", ""), mtype=t, company=q.get("company", ""),
-                capabilities=qcaps, sort=sort, limit=limit)
+                capabilities=qcaps, sort=sort, limit=limit,
+                domain=q.get("domain", ""))
             cards = []
             for m in hf_api.search_models(params):
                 card = make_card(m, t)

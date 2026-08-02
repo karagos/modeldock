@@ -147,13 +147,21 @@ $("#filters").addEventListener("click", (ev) => {
     $$('[data-group="' + group + '"] .chip').forEach((c) => c.classList.remove("active"));
     if (!wasActive || group === "sort") chip.classList.add("active");
     state.filters[group] = chip.classList.contains("active") ? chip.dataset.v : "";
-    if (group === "sort" || group === "period") state.sortTouched = true;
     if (group === "sort" || group === "period") {
+      state.sortTouched = true;
       if (!row.querySelector(".chip.active")) {          // period/sort always keep one
         chip.classList.add("active");
         state.filters[group] = chip.dataset.v;
       }
-      $("#periodRow").hidden = state.filters.sort !== "downloads";
+    }
+    if (group === "sort") {
+      // Progressive disclosure: the Period options belong to "Most downloaded".
+      // First click reveals them; clicking it again folds them away.
+      if (chip.dataset.v === "downloads") {
+        $("#periodRow").hidden = wasActive ? !$("#periodRow").hidden : false;
+      } else {
+        $("#periodRow").hidden = true;
+      }
     }
   }
   if (group === "type") {
@@ -188,7 +196,7 @@ $("#homeBtn").addEventListener("click", () => {
   state.filters.type = "gguf";
   document.querySelector('[data-group="sort"] .chip[data-v="downloads"]').classList.add("active");
   document.querySelector('[data-group="period"] .chip[data-v="30d"]').classList.add("active");
-  $("#periodRow").hidden = false;
+  $("#periodRow").hidden = true;
   $("#companyFree").value = "";
   syncTypeRows();
   runSearch();

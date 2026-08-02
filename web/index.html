@@ -102,11 +102,11 @@
       </div>
       <div class="chiprow" data-group="sort">
         <span class="lbl">Sort</span>
-        <button class="chip active" data-v="downloads" title="Ranked by download count. Pick the time window in the Period row below.">Most downloaded</button>
+        <button class="chip active" data-v="downloads" title="Ranked by download count. Click to choose the time window.">Most downloaded ▾</button>
         <button class="chip" data-v="trending" title="Hugging Face's momentum score: models gaining downloads and likes fastest over the past few days. No fixed period; it refreshes continuously.">Trending</button>
         <button class="chip" data-v="newest" title="Sorted by first-publish date, newest first. Not a time window: the list starts at today and goes back.">Newest releases</button>
       </div>
-      <div class="chiprow" data-group="period" id="periodRow">
+      <div class="chiprow" data-group="period" id="periodRow" hidden>
         <span class="lbl">Period</span>
         <button class="chip active" data-v="30d" title="Hugging Face's download counter covers a rolling 30-day window">Last 30 days</button>
         <button class="chip" data-v="all" title="True all-time download counts, re-ranked by ModelDock (best-effort: candidates come from the current top + most-liked lists)">All time</button>

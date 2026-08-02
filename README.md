@@ -9,6 +9,8 @@
 [![Made by CAIO Group](https://img.shields.io/badge/Made%20by-CAIO%20Group-D97757)](https://wearecaio.com)
 [![GitHub stars](https://img.shields.io/github/stars/karagos/modeldock?style=social)](https://github.com/karagos/modeldock)
 
+**The home port for your local AI.**
+
 </div>
 
 Download AI models from Hugging Face straight to any drive you choose. Built for keeping a large model collection on an external SSD instead of filling your Mac's internal disk.

@@ -1,4 +1,4 @@
-# ModelDock, by CAIO Group
+# ModelDock
 
 <div align="center">
 

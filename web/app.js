@@ -262,8 +262,8 @@ const PERIOD_TITLES = { "30d": "Most downloaded · last 30 days",
   all: "Most downloaded · all time",
   "6m": "Top models released in the last 6 months",
   "1y": "Top models released in the last year" };
-const SORT_TITLES = { trending: "Trending right now",
-  newest: "Newest releases · first published" };
+const SORT_TITLES = { trending: "Trending right now · momentum over the past few days",
+  newest: "Newest releases · first published, newest at the top" };
 function browseTitle() {
   return state.filters.sort === "downloads"
     ? PERIOD_TITLES[state.filters.period] || ""

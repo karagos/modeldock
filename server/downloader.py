@@ -1,5 +1,6 @@
 """Sequential download worker: .part files, HTTP Range resume, verify, atomic rename."""
 import hashlib
+import json
 import os
 import threading
 import time
@@ -9,8 +10,9 @@ import urllib.request
 CHUNK = 256 * 1024
 SPACE_CHECK_EVERY = 200          # chunks (~50 MB)
 MIN_FREE = 500 * 1024 * 1024     # pause when destination drops below this
-SHA_VERIFY_MAX = 5 * 1024 ** 3   # read-back hash only for files <= 5 GiB
-RETRIES = 5
+TORN_TAIL = 4 * 1024 * 1024      # dropped from a .part after an unclean stop
+NET_BACKOFF_MAX = 60             # seconds between retries; network never kills a job
+MANIFEST = ".modeldock.json"
 HEADERS = {"User-Agent": "ModelDock/1.0 (local; CAIO)"}
 
 
@@ -31,7 +33,10 @@ class DownloadManager:
         self._signals = {}  # job_id -> "pause" | "cancel"
         for job in self.store.data["queue"]:      # recover after restart
             if job["state"] == "active":
-                job["state"] = "paused"
+                # This job was RUNNING when the app stopped (crash, power loss,
+                # quit). Continue it automatically; drop a possibly-torn tail.
+                job["state"] = "queued"
+                job["unclean"] = True
         # Jobs still queued at shutdown continue automatically on next launch.
         if any(j["state"] == "queued" for j in self.store.data["queue"]):
             with self._lock:
@@ -149,25 +154,46 @@ class DownloadManager:
                 done_bytes += f["size"]
                 job["downloaded_bytes"] = done_bytes
                 continue
-            self._download_file(job, f, final, done_bytes)
-            self._verify(final + ".part", f)
+            digest = self._download_file(job, f, final, done_bytes)
+            self._verify(final + ".part", f, digest)
             os.replace(final + ".part", final)
             job.setdefault("completed", []).append(f["local_name"])
             done_bytes += f["size"]
             job["downloaded_bytes"] = done_bytes
             self.store.save()
+        self._write_manifest(job)
         job["state"] = "done"
         self.store.save()
 
+    def _request_headers(self):
+        h = dict(HEADERS)
+        token = self.store.data["settings"].get("hf_token", "")
+        if token:
+            h["Authorization"] = "Bearer " + token
+        return h
+
     def _download_file(self, job, f, final, done_bytes):
+        """Stream to .part while hashing every byte. Returns the sha256 hexdigest.
+        On resume the existing partial is fed through the hasher first, so the
+        final digest always covers the whole file regardless of interruptions."""
         part = final + ".part"
+        if job.pop("unclean", False) and os.path.exists(part):
+            keep = max(0, os.path.getsize(part) - TORN_TAIL)
+            with open(part, "r+b") as fh:
+                fh.truncate(keep)
+        hasher = hashlib.sha256()
+        pos = 0
+        if os.path.exists(part):
+            with open(part, "rb") as fh:
+                for block in iter(lambda: fh.read(1024 * 1024), b""):
+                    hasher.update(block)
+                    pos += len(block)
         attempts = 0
         while True:
-            pos = os.path.getsize(part) if os.path.exists(part) else 0
             if pos >= f["size"]:
-                return
+                return hasher.hexdigest()
             try:
-                req = urllib.request.Request(f["url"], headers=dict(HEADERS))
+                req = urllib.request.Request(f["url"], headers=self._request_headers())
                 if pos:
                     req.add_header("Range", "bytes=%d-" % pos)
                 with self.opener(req, timeout=30) as resp, open(part, "ab") as out:
@@ -178,14 +204,20 @@ class DownloadManager:
                         if not block:
                             break
                         out.write(block)
+                        hasher.update(block)
                         pos += len(block)
+                        if job["error"]:
+                            job["error"] = ""   # connection is back
                         job["downloaded_bytes"] = done_bytes + pos
                         chunks += 1
                         if chunks % SPACE_CHECK_EVERY == 0:
                             self._check_space(job)
+                    if pos >= f["size"]:
+                        out.flush()
+                        os.fsync(out.fileno())   # survive power loss after "done"
                 if pos >= f["size"]:
-                    return
-                attempts += 1  # server closed early — retry/resume
+                    return hasher.hexdigest()
+                attempts += 1  # server closed early; retry/resume
             except _Interrupted:
                 raise
             except urllib.error.HTTPError as e:
@@ -195,16 +227,14 @@ class DownloadManager:
                         "Download refused (HTTP %d). The file may have been removed "
                         "or requires a Hugging Face account." % e.code) from e
                 attempts += 1
-                if attempts > RETRIES:
-                    raise RuntimeError("Network failed after %d retries: %s" % (RETRIES, e)) from e
-                time.sleep(min(2 ** attempts, 30))
+                job["error"] = "Hugging Face hiccup (HTTP %d). Retrying…" % e.code
+                time.sleep(min(2 ** min(attempts, 6), NET_BACKOFF_MAX))
             except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as e:
                 if isinstance(e, OSError) and not os.path.isdir(job["dest_dir"]):
                     raise RuntimeError("Destination drive is not available") from e
                 attempts += 1
-                if attempts > RETRIES:
-                    raise RuntimeError("Network failed after %d retries: %s" % (RETRIES, e)) from e
-                time.sleep(min(2 ** attempts, 30))
+                job["error"] = "Waiting for connection. Retrying…"
+                time.sleep(min(2 ** min(attempts, 6), NET_BACKOFF_MAX))
 
     def _check_signal(self, job):
         sig = self._signals.get(job["id"])
@@ -220,7 +250,7 @@ class DownloadManager:
         except OSError:
             raise RuntimeError("Destination drive is not available")
 
-    def _verify(self, part_path, f):
+    def _verify(self, part_path, f, digest):
         actual = os.path.getsize(part_path)
         if actual != f["size"]:
             # Remove the bad .part or Resume would see pos >= size and loop forever.
@@ -228,10 +258,28 @@ class DownloadManager:
             raise RuntimeError("verification failed: size %d != expected %d "
                                "(bad download removed; Resume restarts this file)"
                                % (actual, f["size"]))
-        if f.get("sha256") and f["size"] <= SHA_VERIFY_MAX:
-            if sha256_file(part_path) != f["sha256"]:
-                os.remove(part_path)
-                raise RuntimeError("verification failed: checksum mismatch (corrupt download removed)")
+        if f.get("sha256") and digest and digest != f["sha256"]:
+            os.remove(part_path)
+            raise RuntimeError("verification failed: checksum mismatch (corrupt download removed)")
+
+    def _write_manifest(self, job):
+        """Record checksums next to the files so the Library can re-verify anytime."""
+        path = os.path.join(job["dest_dir"], MANIFEST)
+        data = {}
+        try:
+            with open(path) as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            pass
+        files = data.setdefault("files", {})
+        for f in job["files"]:
+            files[f["local_name"]] = {"sha256": f.get("sha256"), "size": f["size"],
+                                      "model_id": job["model_id"],
+                                      "downloaded": int(time.time())}
+        tmp = path + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(data, fh, indent=1)
+        os.replace(tmp, path)
 
 
 class _Interrupted(Exception):

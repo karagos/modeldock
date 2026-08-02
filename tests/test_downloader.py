@@ -181,3 +181,120 @@ class TestBootKick(unittest.TestCase):
                 time.sleep(0.05)
             self.assertEqual(mgr.status()[0]["state"], "done")
             self.assertTrue(os.path.exists(os.path.join(d, "file.bin")))
+
+
+class TestDownloadArmor(unittest.TestCase):
+    def test_crash_recovery_truncates_torn_tail_and_completes(self):
+        import downloader as dl
+        import json
+        old_tail = dl.TORN_TAIL
+        dl.TORN_TAIL = 1000
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                with open(os.path.join(d, "file.bin.part"), "wb") as f:
+                    f.write(PAYLOAD[:4000])
+                job = make_job(d)
+                job["state"] = "active"          # simulates a crash mid-download
+                with open(os.path.join(d, "s.json"), "w") as f:
+                    json.dump({"settings": {}, "queue": [job]}, f)
+                seen = {}
+
+                def spy(req, timeout=0):
+                    seen.setdefault("range", req.headers.get("Range"))
+                    return range_opener(req, timeout)
+                mgr = DownloadManager(Store(os.path.join(d, "s.json")), opener=spy)
+                deadline = time.time() + 5
+                while time.time() < deadline:
+                    st = mgr.status()
+                    if st and st[0]["state"] in ("done", "error"):
+                        break
+                    time.sleep(0.05)
+                self.assertEqual(mgr.status()[0]["state"], "done")
+                self.assertEqual(seen["range"], "bytes=3000-")  # 4000 minus torn tail
+                self.assertEqual(open(os.path.join(d, "file.bin"), "rb").read(), PAYLOAD)
+        finally:
+            dl.TORN_TAIL = old_tail
+
+    def test_full_hash_verified_for_any_size_via_streaming(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=range_opener)
+            j = make_job(d)
+            j["files"][0]["sha256"] = hashlib.sha256(PAYLOAD).hexdigest()
+            mgr.add_job(j)
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                st = mgr.status()
+                if st and st[0]["state"] in ("done", "error"):
+                    break
+                time.sleep(0.05)
+            self.assertEqual(mgr.status()[0]["state"], "done")
+
+    def test_hash_correct_across_resume(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "file.bin.part"), "wb") as f:
+                f.write(PAYLOAD[:4000])   # clean pre-existing partial
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=range_opener)
+            j = make_job(d)
+            j["files"][0]["sha256"] = hashlib.sha256(PAYLOAD).hexdigest()
+            mgr.add_job(j)
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                st = mgr.status()
+                if st and st[0]["state"] in ("done", "error"):
+                    break
+                time.sleep(0.05)
+            self.assertEqual(mgr.status()[0]["state"], "done",
+                             "resumed download must hash the existing bytes too")
+
+    def test_network_errors_never_kill_job(self):
+        import downloader as dl
+        import urllib.error
+        calls = {"n": 0}
+
+        def flaky(req, timeout=0):
+            calls["n"] += 1
+            if calls["n"] <= 7:
+                raise urllib.error.URLError("network down")
+            return range_opener(req, timeout)
+        old_sleep = dl.time.sleep
+        dl.time.sleep = lambda s: None
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                store = Store(os.path.join(d, "s.json"))
+                mgr = DownloadManager(store, opener=flaky)
+                mgr.add_job(make_job(d))
+                deadline = time.time() + 5
+                while time.time() < deadline:
+                    st = mgr.status()
+                    if st and st[0]["state"] in ("done", "error"):
+                        break
+                    time.sleep(0.05)
+                self.assertEqual(mgr.status()[0]["state"], "done",
+                                 "7 straight network failures must not error the job")
+                if mgr._worker:
+                    mgr._worker.join(timeout=2)   # let the thread finish before tmpdir cleanup
+        finally:
+            dl.time.sleep = old_sleep
+
+    def test_manifest_written_after_completion(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=range_opener)
+            j = make_job(d)
+            j["files"][0]["sha256"] = "cafe" * 16
+            j["files"][0]["sha256"] = None   # no checksum: manifest still records size
+            mgr.add_job(j)
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                st = mgr.status()
+                if st and st[0]["state"] in ("done", "error"):
+                    break
+                time.sleep(0.05)
+            m = json.load(open(os.path.join(d, ".modeldock.json")))
+            self.assertIn("file.bin", m["files"])
+            self.assertEqual(m["files"]["file.bin"]["size"], len(PAYLOAD))

@@ -13,12 +13,14 @@ class Store:
     def __init__(self, path):
         self.path = path
         self._lock = threading.RLock()
-        self.data = {"settings": dict(DEFAULT_SETTINGS), "queue": [], "watchlist": []}
+        self.data = {"settings": dict(DEFAULT_SETTINGS), "queue": [], "watchlist": [],
+                     "searches": {"recent": [], "saved": []}}
         try:
             with open(path) as f:
                 loaded = json.load(f)
             self.data["queue"] = loaded.get("queue", [])
             self.data["watchlist"] = loaded.get("watchlist", [])
+            self.data["searches"] = loaded.get("searches", {"recent": [], "saved": []})
             merged = dict(DEFAULT_SETTINGS)
             merged.update(loaded.get("settings", {}))
             self.data["settings"] = merged

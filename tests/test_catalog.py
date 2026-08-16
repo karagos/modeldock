@@ -215,5 +215,26 @@ class TestLicenseVerdict(unittest.TestCase):
         self.assertIsNone(catalog.license_verdict(""))
 
 
+class TestSearchV3(unittest.TestCase):
+    def test_broaden(self):
+        self.assertEqual(catalog.broaden_terms("food models"), ["culinary", "recipe", "chef"])
+        self.assertEqual(catalog.broaden_terms("qwen 3"), [])
+        self.assertNotIn("law", catalog.broaden_terms("law"))  # never echoes the query
+
+    def test_parse_base_models(self):
+        tags = ["gguf", "base_model:Qwen/Qwen3-9B",
+                "base_model:quantized:Qwen/Qwen3-9B", "base_model:notarepo"]
+        out = catalog.parse_base_models(tags)
+        self.assertEqual(out[0], {"rel": "base", "id": "Qwen/Qwen3-9B"})
+        self.assertEqual(out[1], {"rel": "quantized", "id": "Qwen/Qwen3-9B"})
+        self.assertEqual(len(out), 2)
+
+    def test_infer_mtype(self):
+        self.assertEqual(catalog.infer_mtype(["transformers", "gguf"]), "gguf")
+        self.assertEqual(catalog.infer_mtype(["mlx"]), "mlx")
+        self.assertEqual(catalog.infer_mtype(["diffusers"]), "image")
+        self.assertEqual(catalog.infer_mtype(["safetensors"]), "gguf")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -191,6 +191,8 @@ button.ghost {
 .pill.lic-open { background: #3f9d6b22; color: var(--green); }
 .pill.lic-custom { background: #d99a3d22; color: var(--orange); }
 .pill.lic-nc { background: #cc544922; color: var(--red); }
+#broadenBtn.active { border-color: var(--accent); color: var(--accent); }
+.chip .zap { margin-left: 6px; opacity: .7; cursor: pointer; }
 .msg { color: var(--muted); padding: 30px 0; text-align: center; }
 #toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

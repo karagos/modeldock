@@ -4,7 +4,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
   filters: { type: "gguf", company: "", capability: "", size: "", domain: "", sort: "downloads", period: "30d" },
-  sortTouched: false,
+  sortTouched: false, broaden: false, customHeading: null,
   settings: {}, system: {}, results: [], pollTimer: null, watch: new Set(),
 };
 
@@ -204,6 +204,71 @@ $("#homeBtn").addEventListener("click", () => {
 $("#goBtn").addEventListener("click", runSearch);
 $("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
 
+// ---- recent + saved searches ----
+function searchSnapshot() {
+  return Object.assign({ q: $("#q").value.trim(), broaden: state.broaden }, state.filters);
+}
+function searchLabel(s) {
+  const bits = [s.q, s.company, s.capability && s.capability.split(",").join("+"),
+    s.domain, s.size].filter(Boolean);
+  return bits.join(" · ") || "search";
+}
+function applySearchState(s) {
+  $("#q").value = s.q || "";
+  state.broaden = !!s.broaden;
+  $("#broadenBtn").classList.toggle("active", state.broaden);
+  ["company", "capability", "size", "domain", "sort", "period", "type"].forEach((k) => {
+    state.filters[k] = s[k] !== undefined ? s[k] : (k === "sort" ? "downloads" : k === "period" ? "30d" : k === "type" ? "gguf" : "");
+  });
+  $$("#filters .chip").forEach((ch) => {
+    const g = ch.parentElement.dataset.group;
+    const v = state.filters[g] || "";
+    ch.classList.toggle("active", v.split(",").includes(ch.dataset.v));
+  });
+  state.sortTouched = true;
+  syncTypeRows();
+  runSearch();
+}
+async function renderSearchesRow() {
+  try {
+    const s = await api("/api/searches");
+    const row = $("#searchesRow");
+    row.replaceChildren(el("span", "lbl", "Searches"));
+    (s.saved || []).forEach((sv) => {
+      const chip = el("button", "chip", "★ " + sv.name);
+      chip.addEventListener("click", () => applySearchState(sv.search));
+      const x = el("span", "zap", "✕");
+      x.title = "Delete saved search";
+      x.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        await post("/api/searches/delete", { name: sv.name });
+        renderSearchesRow();
+      });
+      chip.append(x);
+      row.append(chip);
+    });
+    (s.recent || []).slice(0, 5).forEach((r) => {
+      const chip = el("button", "chip", searchLabel(r));
+      chip.title = "Recent search";
+      chip.addEventListener("click", () => applySearchState(r));
+      row.append(chip);
+    });
+    row.hidden = row.children.length <= 1;
+  } catch (e) { /* non-critical */ }
+}
+$("#broadenBtn").addEventListener("click", () => {
+  state.broaden = !state.broaden;
+  $("#broadenBtn").classList.toggle("active", state.broaden);
+  if ($("#q").value.trim()) runSearch();
+});
+$("#saveSearchBtn").addEventListener("click", async () => {
+  const name = prompt("Name this search:", searchLabel(searchSnapshot()));
+  if (!name) return;
+  await post("/api/searches/save", { name: name.trim(), search: searchSnapshot() });
+  toast("Search saved");
+  renderSearchesRow();
+});
+
 // ---- search ----
 const CAP_LABELS = { vision: "Vision", thinking: "Thinking", agentic: "Agentic", coding: "Coding" };
 
@@ -211,11 +276,15 @@ async function runSearch() {
   const f = state.filters;
   const qs = new URLSearchParams({ q: $("#q").value.trim(), type: f.type,
     company: f.company, capability: f.capability, size: f.size, domain: f.domain,
-    sort: f.sort, period: f.period });
+    sort: f.sort, period: f.period, broaden: state.broaden ? "1" : "0" });
   const dpane = $("#detail");
   dpane.hidden = true; state.detailFor = null;
   $("#results").after(dpane);   // rescue it before the grid is wiped
-  if (searchIsEmpty()) { showDiscover(); return; }
+  if (searchIsEmpty()) { $("#saveSearchBtn").hidden = true; showDiscover(); return; }
+  $("#saveSearchBtn").hidden = false;
+  state.customHeading = null;
+  post("/api/searches/recent", { search: searchSnapshot() })
+    .then(renderSearchesRow).catch(() => {});
   $("#results").replaceChildren(el("div", "msg", "Searching Hugging Face…"));
   try {
     const data = await api("/api/search?" + qs);
@@ -257,6 +326,7 @@ function buildCard(m, showFmt) {
   (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
   if (m.gated) name.append(el("span", "pill gated", "gated"));
   if (m.via_readme) name.append(el("span", "pill", "readme match"));
+  if (m.via_term) name.append(el("span", "pill", "≈ " + m.via_term));
   const date = (m.created || m.updated || "").slice(0, 10);
   const dl = (m.downloads_all != null)
     ? m.downloads_all.toLocaleString() + " downloads (all time)"
@@ -286,7 +356,9 @@ function renderResults() {
     box.append(el("div", "msg", "No models found. Try fewer filters or another search term."));
     return;
   }
-  if (!$("#q").value.trim()) {
+  if (state.customHeading) {
+    box.append(el("div", "feed-head", state.customHeading));
+  } else if (!$("#q").value.trim()) {
     box.append(el("div", "feed-head", browseTitle()));
   }
   const multiType = state.filters.type.includes(",");
@@ -365,6 +437,34 @@ async function openDetail(card, cardEl) {
     if (m.params) metaTxt += " · " + m.params.total_b + "B parameters";
     d.append(el("div", "dmeta", metaTxt));
     if (m.moe_note) d.append(el("div", "dmeta", "Mixture-of-Experts: " + m.moe_note));
+    const lin = el("div", "dbadges");
+    const seenBases = new Set();
+    (m.bases || []).filter((b) => !seenBases.has(b.id) && seenBases.add(b.id))
+      .slice(0, 2).forEach((b) => {
+      const bb = el("button", "ghost", "⬑ Base: " + b.id);
+      bb.title = b.rel === "base" ? "The original model this one derives from"
+        : "This is a " + b.rel + " version of that model";
+      bb.addEventListener("click", () => openDetail({ id: b.id, mtype: m.mtype }, cardEl));
+      lin.append(bb);
+    });
+    [["finetune", "Fine-tunes"], ["quantized", "Quantizations"]].forEach(([rel, lbl]) => {
+      const lb = el("button", "ghost", lbl + " of this");
+      lb.title = "Search Hugging Face for every " + rel + " descendant of this model";
+      lb.addEventListener("click", async () => {
+        lb.textContent = "Searching…";
+        try {
+          const r = await api("/api/lineage?" + new URLSearchParams({ id: m.id, rel }));
+          state.results = r.results;
+          state.customHeading = lbl + " of " + m.id + " (" + r.results.length + ")";
+          d.hidden = true; state.detailFor = null;
+          renderResults();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (e) { toast(e.message, true); }
+        lb.textContent = lbl + " of this";
+      });
+      lin.append(lb);
+    });
+    if (lin.children.length) d.append(lin);
     if (m.description) d.append(el("p", "desc", m.description));
     if (m.gated) {
       d.append(el("div", "msg", m.gated_reason ||
@@ -604,5 +704,6 @@ $("#libSort").addEventListener("change", () => state.lib && renderLibrary());
   await refreshSystem();
   setInterval(refreshSystem, 5000);
   pollDownloads();
+  renderSearchesRow();
   showDiscover();
 })();

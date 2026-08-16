@@ -238,3 +238,57 @@ def license_verdict(lic):
     if "nc" in parts or "non-commercial" in l or "research" in l:
         return {"level": "nc", "text": "Non-commercial only"}
     return {"level": "custom", "text": "Custom license, review terms"}
+
+
+BROADEN = {
+    "food": ["culinary", "recipe", "chef"], "culinary": ["recipe", "chef", "food"],
+    "cooking": ["culinary", "recipe", "chef"], "recipe": ["culinary", "cooking", "chef"],
+    "law": ["legal", "lawyer"], "legal": ["law", "lawyer"],
+    "medicine": ["medical", "clinical", "health"], "medical": ["clinical", "health", "biomed"],
+    "finance": ["financial", "trading", "economics"], "trading": ["finance", "stock"],
+    "music": ["audio", "song"], "math": ["mathematics", "reasoning"],
+    "coding": ["code", "programming"], "programming": ["code", "coder"],
+    "story": ["roleplay", "fiction", "writing"], "writing": ["story", "creative"],
+    "translation": ["multilingual", "translate"], "greek": ["hellenic", "el"],
+    "astronomy": ["astro", "space"], "biology": ["bio", "genomics"],
+    "chemistry": ["chem", "molecular"], "travel": ["tourism"],
+    "sailing": ["nautical", "maritime"], "wine": ["sommelier", "vineyard"],
+}
+
+
+def broaden_terms(q, cap=3):
+    """Sibling terms for a query, from a curated thesaurus. Never echoes the query."""
+    toks = re.findall(r"[a-z]+", (q or "").lower())
+    out = []
+    for t in toks:
+        for syn in BROADEN.get(t, []):
+            if syn not in out and syn not in toks:
+                out.append(syn)
+    return out[:cap]
+
+
+def parse_base_models(tags):
+    """HF lineage tags: base_model:Org/Name (direct) or base_model:<rel>:Org/Name."""
+    out = []
+    for t in tags or []:
+        if not t.startswith("base_model:"):
+            continue
+        rest = t.split(":", 1)[1]
+        if ":" in rest and "/" in rest.split(":", 1)[1]:
+            rel, target = rest.split(":", 1)
+        else:
+            rel, target = "base", rest
+        if "/" in target:
+            out.append({"rel": rel, "id": target})
+    return out
+
+
+def infer_mtype(tags):
+    tl = [str(t).lower() for t in (tags or [])]
+    if "gguf" in tl:
+        return "gguf"
+    if any("mlx" in t for t in tl):
+        return "mlx"
+    if any(t in ("text-to-image", "text-to-video", "diffusers") for t in tl):
+        return "image"
+    return "gguf"

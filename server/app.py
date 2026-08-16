@@ -157,6 +157,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(out)
             elif route == "/api/discover":
                 self._api_discover()
+            elif route == "/api/lineage":
+                self._api_lineage()
+            elif route == "/api/searches":
+                self._json(STORE.data["searches"])
             elif route == "/api/watchlist":
                 self._json({"watchlist": STORE.data["watchlist"]})
             elif route == "/api/settings":
@@ -193,6 +197,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._api_delete(body)
             elif route == "/api/library/verify":
                 self._api_verify(body)
+            elif route == "/api/searches/recent":
+                self._api_search_recent(body)
+            elif route == "/api/searches/save":
+                self._api_search_save(body)
+            elif route == "/api/searches/delete":
+                self._api_search_delete(body)
             elif route == "/api/watchlist":
                 self._api_watchlist_add(body)
             elif route == "/api/watchlist/remove":
@@ -266,6 +276,17 @@ class Handler(BaseHTTPRequestHandler):
                         continue
                     cards.append(card)
             per_query.append(cards)
+        if q.get("broaden") == "1" and q.get("q", "").strip():
+            for term in catalog.broaden_terms(q.get("q", "")):
+                t0 = next((t for t in types if t != "image"), types[0])
+                prm = catalog.build_search_params(q=term, mtype=t0, company=q.get("company", ""),
+                                                  capabilities=[], sort=sort, limit=20)
+                cards = []
+                for m in hf_api.search_models(prm):
+                    card = make_card(m, t0)
+                    card["via_term"] = term
+                    cards.append(card)
+                per_query.append(cards)
         if q.get("q", "").strip():
             ft_cards = []
             for h in hf_api.search_fulltext(q.get("q", "").strip()):
@@ -320,6 +341,43 @@ class Handler(BaseHTTPRequestHandler):
             {"title": "Most downloaded · last 30 days", "cards": top}]}
         _DISCOVER_CACHE.update(ts=now, data=data)
         self._json(data)
+
+    def _api_lineage(self):
+        q = self._query()
+        mid, rel = q["id"], q.get("rel", "finetune")
+        if rel not in ("finetune", "quantized", "adapter", "merge"):
+            rel = "finetune"
+        raw = hf_api.search_models({"filter": "base_model:%s:%s" % (rel, mid),
+                                    "sort": "downloads", "direction": "-1",
+                                    "limit": "30", "full": "true"})
+        self._json({"results": [make_card(m, catalog.infer_mtype(m.get("tags")))
+                                for m in raw]})
+
+    def _api_search_recent(self, body):
+        rec = STORE.data["searches"]["recent"]
+        entry = body.get("search")
+        if entry:
+            rec[:] = [r for r in rec if r != entry]
+            rec.insert(0, entry)
+            del rec[8:]
+            STORE.save()
+        self._json(STORE.data["searches"])
+
+    def _api_search_save(self, body):
+        saved = STORE.data["searches"]["saved"]
+        name = (body.get("name") or "").strip()[:60]
+        if name and body.get("search"):
+            saved[:] = [s for s in saved if s["name"] != name]
+            saved.insert(0, {"name": name, "search": body["search"]})
+            del saved[20:]
+            STORE.save()
+        self._json(STORE.data["searches"])
+
+    def _api_search_delete(self, body):
+        saved = STORE.data["searches"]["saved"]
+        saved[:] = [s for s in saved if s["name"] != body.get("name")]
+        STORE.save()
+        self._json(STORE.data["searches"])
 
     def _api_watchlist_add(self, body):
         wl = STORE.data["watchlist"]
@@ -435,6 +493,7 @@ class Handler(BaseHTTPRequestHandler):
                          % (p["total_b"], p["active_b"]))
                         if p and p["moe"] and p["active_b"] else None,
             "caps": sorted(catalog.detect_capabilities(mid, info.get("tags", []))),
+            "bases": catalog.parse_base_models(info.get("tags", [])),
             "variants": variants})
 
     def _api_download(self, body):

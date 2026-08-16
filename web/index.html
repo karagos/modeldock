@@ -29,9 +29,13 @@
     <div class="searchbar">
       <input id="q" type="search" placeholder="Search models: qwen 3, flux, whisper…">
       <button id="goBtn" class="primary">Search</button>
+      <button id="broadenBtn" class="ghost"
+        title="Also search sibling words: cooking finds culinary, recipe, chef. Results from siblings carry a ≈ pill.">≈ Broaden</button>
+      <button id="saveSearchBtn" class="ghost" hidden title="Save this exact search to re-run anytime">☆ Save</button>
       <button id="homeBtn" class="ghost" hidden
         title="Back to the start page: your watchlist, trending, fresh lab releases, most downloaded">⌂ Home</button>
     </div>
+    <div class="chiprow" id="searchesRow" hidden><span class="lbl">Searches</span></div>
     <div class="filters" id="filters">
       <div class="chiprow" data-group="type" data-multi="1">
         <span class="lbl">Type</span>

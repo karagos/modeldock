@@ -40,6 +40,26 @@ const el = (tag, cls, text) => {
   return e;
 };
 
+// ---- help ----
+function toggleHelp(show) {
+  $("#helpOverlay").hidden = show === undefined ? !$("#helpOverlay").hidden : !show ? true : false;
+}
+$("#helpBtn").addEventListener("click", () => toggleHelp(true));
+$("#helpClose").addEventListener("click", () => toggleHelp(false));
+$("#helpOverlay").addEventListener("click", (ev) => {
+  if (ev.target === $("#helpOverlay")) toggleHelp(false);
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") toggleHelp(false);
+  if (ev.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
+    toggleHelp(true);
+  }
+});
+if (!localStorage.getItem("modeldock.helpSeen")) {
+  localStorage.setItem("modeldock.helpSeen", "1");
+  setTimeout(() => toggleHelp(true), 600);   // first visit: open the guide once
+}
+
 // ---- tabs ----
 $$(".tab").forEach((b) => b.addEventListener("click", () => {
   $$(".tab").forEach((x) => x.classList.toggle("active", x === b));

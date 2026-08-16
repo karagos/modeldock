@@ -15,6 +15,7 @@
     <span id="destPath">No destination</span>
     <span id="destFree"></span>
   </div>
+  <button id="helpBtn" title="Help and hidden gems (press ?)">?</button>
   <button id="themeBtn" title="Toggle theme">◐</button>
 </header>
 <nav>
@@ -227,6 +228,56 @@
     </div>
   </section>
 </main>
+<div id="helpOverlay" hidden>
+  <div class="help">
+    <div class="help-head">
+      <h2>▣ Welcome to ModelDock</h2>
+      <button id="helpClose" class="ghost">Close ✕</button>
+    </div>
+    <p class="hint">The home port for your local AI. Three steps to your first model:
+    pick a destination folder in <strong>Settings</strong> (your external SSD),
+    find a model in <strong>Search</strong>, press <strong>Download</strong>.
+    Everything below makes you faster.</p>
+
+    <h4>Search &amp; discovery</h4>
+    <ul class="gems">
+      <li><strong>Start page:</strong> with an empty search you see your Watchlist, Trending now, Fresh lab releases, and Most downloaded. The <strong>⌂ Home</strong> button brings it back anytime.</li>
+      <li><strong>☆ Star any model</strong> to watch it without downloading. Ideal for models your next Mac could run.</li>
+      <li><strong>Search looks inside model cards</strong>, not just names: try an interest like "culinary" or "chess". Extra finds carry a <em>readme match</em> pill.</li>
+      <li><strong>≈ Broaden</strong> fans your word out to siblings (cooking also tries culinary, recipe, chef). Each extra result says which word found it.</li>
+      <li><strong>Most downloaded ▾</strong> hides a Period picker: last 30 days, all time, or only models released in the last 6 or 12 months.</li>
+      <li><strong>Combine filters freely:</strong> Domain + ≤4B SLM finds small specialist models; capabilities like Thinking + MoE stack.</li>
+      <li><strong>Quantizers row:</strong> Unsloth, bartowski, mradermacher, LM Studio and friends often ship the best ready-to-run versions.</li>
+      <li><strong>Recent and saved searches</strong> live under the search bar. <strong>☆ Save</strong> names the current search for one-click re-runs.</li>
+    </ul>
+
+    <h4>Inside a model</h4>
+    <ul class="gems">
+      <li><strong>Colored dots</strong> answer "will it fit my memory?": green comfortable, orange tight, red won't run. Set the memory size in Settings to plan for a future Mac.</li>
+      <li><strong>Your preferred quantization glows</strong>; versions you already own show <em>In library ✓</em>.</li>
+      <li><strong>License pill:</strong> plain-language verdicts like "Commercial use OK".</li>
+      <li><strong>Lineage:</strong> jump to the base model, or list every fine-tune and quantization of it.</li>
+      <li><strong>No GGUF files?</strong> A "Full repository" download still gets you the model.</li>
+    </ul>
+
+    <h4>Downloads that cannot break</h4>
+    <ul class="gems">
+      <li>Refreshing or closing the browser <strong>never stops a download</strong>; it runs in the app itself.</li>
+      <li>Power cut, crash, unplugged drive, lost connection: progress is kept and <strong>resumes from the exact byte</strong>, automatically after a crash.</li>
+      <li>Every byte is <strong>checksummed while it streams</strong>. A file only gets its real name after verification, so a half file can never pose as a model.</li>
+    </ul>
+
+    <h4>Library &amp; settings</h4>
+    <ul class="gems">
+      <li><strong>Verify</strong> re-proves a model's integrity anytime against recorded checksums.</li>
+      <li><strong>Copy as Markdown</strong> turns your collection into a paste-ready table for docs and posts.</li>
+      <li>Delete always goes to the <strong>Trash</strong>, never permanent. The Library reads the real drive, so Finder changes show instantly.</li>
+      <li>Point <strong>LM Studio</strong> at <code>Models/llm</code> and <strong>ComfyUI</strong> at <code>Models/comfyui</code>: downloads appear there automatically.</li>
+      <li>A free <strong>Hugging Face token</strong> in Settings unlocks gated models (Llama, Gemma, Flux dev).</li>
+    </ul>
+    <p class="hint">Press <kbd>?</kbd> anytime to reopen this guide. Esc closes it.</p>
+  </div>
+</div>
 <div id="toast" hidden></div>
 <script src="app.js"></script>
 </body>

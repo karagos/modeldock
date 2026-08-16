@@ -266,6 +266,33 @@ class Handler(BaseHTTPRequestHandler):
                         continue
                     cards.append(card)
             per_query.append(cards)
+        if q.get("q", "").strip():
+            ft_cards = []
+            for h in hf_api.search_fulltext(q.get("q", "").strip()):
+                tags = h["tags"]
+                if "gguf" in tags:
+                    mt = "gguf"
+                elif any("mlx" in t for t in tags):
+                    mt = "mlx"
+                elif any(t in ("text-to-image", "text-to-video", "diffusers") for t in tags):
+                    mt = "image"
+                else:
+                    mt = next((t for t in types if t != "image"), types[0])
+                if mt not in types:
+                    continue
+                p = catalog.parse_params(h["id"])
+                if want_moe and not (p and p["moe"]):
+                    continue
+                if want_bucket and catalog.size_bucket(p["total_b"] if p else None) != want_bucket:
+                    continue
+                ft_cards.append({
+                    "id": h["id"], "company": h["id"].split("/")[0], "mtype": mt,
+                    "downloads": 0, "likes": h["likes"], "updated": "", "created": "",
+                    "downloads_all": None, "gated": False, "via_readme": True,
+                    "caps": sorted(catalog.detect_capabilities(h["id"], tags)),
+                    "params": p,
+                    "bucket": catalog.size_bucket(p["total_b"]) if p else None})
+            per_query.append(ft_cards[:20])
         results = catalog.merge_cards(per_query, sort)
         if period == "all":
             results.sort(key=lambda c: c.get("downloads_all") or 0, reverse=True)
@@ -379,6 +406,14 @@ class Handler(BaseHTTPRequestHandler):
                                      "files": [f], "kind": "image",
                                      "subfolder": catalog.comfy_subfolder(
                                          capability, info.get("tags", []), f["path"])})
+        if not variants and tree and mtype != "image":
+            files = [f for f in tree
+                     if not f["path"].startswith(".") and f["path"] != "README.md"]
+            if files:
+                variants.append({"label": "Full repository (%d files)" % len(files),
+                                 "quant": catalog.parse_quant(mid),
+                                 "size": sum(f["size"] for f in files),
+                                 "files": files, "kind": "text"})
         for v in variants:
             v["fits"] = catalog.fits_badge(v["size"], effective_ram())
             # Same margin the enqueue check uses, so the button never lies.

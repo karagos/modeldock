@@ -256,6 +256,7 @@ function buildCard(m, showFmt) {
   if (m.bucket) name.append(el("span", "pill", m.bucket.replace("<=", "≤")));
   (m.caps || []).forEach((cap) => CAP_LABELS[cap] && name.append(el("span", "pill", CAP_LABELS[cap])));
   if (m.gated) name.append(el("span", "pill gated", "gated"));
+  if (m.via_readme) name.append(el("span", "pill", "readme match"));
   const date = (m.created || m.updated || "").slice(0, 10);
   const dl = (m.downloads_all != null)
     ? m.downloads_all.toLocaleString() + " downloads (all time)"

@@ -77,5 +77,24 @@ class TestHfApi(unittest.TestCase):
         self.assertEqual([f["path"] for f in files], ["a.gguf", "b.gguf"])
 
 
+class TestFulltext(unittest.TestCase):
+    def test_parses_hits(self):
+        op = fake_opener({"hits": [
+            {"repoOwner": "a", "repoName": "ChefModel", "likes": 3,
+             "tags": "transformers, gguf, recipe-generation", "isPrivate": False},
+            {"repoOwner": "b", "repoName": "Secret", "isPrivate": True},
+        ]})
+        out = hf_api.search_fulltext("culinary", opener=op)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["id"], "a/ChefModel")
+        self.assertIn("gguf", out[0]["tags"])
+        self.assertIn("/api/search/full-text?", op.calls[0])
+
+    def test_failure_returns_empty(self):
+        def boom(req, timeout=0):
+            raise OSError("down")
+        self.assertEqual(hf_api.search_fulltext("x", opener=boom), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -49,6 +49,26 @@ def search_models(params, opener=None):
     return _get_json(url, opener)
 
 
+def search_fulltext(q, opener=None):
+    """Hugging Face full-text search: matches model card CONTENT, not just names.
+    Returns [{'id', 'tags': [...], 'likes'}], best-effort ([] on any failure)."""
+    url = "%s/api/search/full-text?%s" % (
+        BASE, urllib.parse.urlencode({"q": q, "type": "model"}))
+    try:
+        hits = _get_json(url, opener).get("hits", [])
+    except (urllib.error.URLError, OSError, ValueError, KeyError):
+        return []
+    out, seen = [], set()
+    for h in hits:
+        mid = "%s/%s" % (h.get("repoOwner", ""), h.get("repoName", ""))
+        if mid in seen or h.get("isPrivate"):
+            continue
+        seen.add(mid)
+        out.append({"id": mid, "likes": h.get("likes", 0),
+                    "tags": [t.strip() for t in (h.get("tags") or "").split(",") if t.strip()]})
+    return out
+
+
 def model_info(model_id, opener=None):
     return _get_json("%s/api/models/%s" % (BASE, model_id), opener)
 

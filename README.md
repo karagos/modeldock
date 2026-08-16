@@ -13,9 +13,20 @@
 
 </div>
 
-Download AI models from Hugging Face straight to any drive you choose. Built for keeping a large model collection on an external SSD instead of filling your Mac's internal disk.
+## What is ModelDock?
 
-**Zero installation.** ModelDock runs on what macOS already ships. No Python installs, no packages, no accounts.
+ModelDock is a local Mac app for building and managing your own collection of AI models. It searches all of Hugging Face, downloads the models you choose straight to any drive (typically a big external SSD), verifies every byte, and keeps your collection organized so inference apps like LM Studio, Ollama and ComfyUI can use it directly.
+
+**The problem it solves:** local AI models are huge (5 GB to 500 GB each) and most tools quietly download them to your internal disk, in formats and folders you don't control. ModelDock puts you in charge: you pick the drive, you see exactly what fits your Mac's memory before downloading, downloads survive crashes and lost connections with byte-exact resume, and your models live in plain, portable folders you own. No cloud, no account required, no database. Everything runs on your machine.
+
+**What it does, at a glance:**
+
+- **Discover**: a start page with trending models, fresh lab releases and your watchlist; search that reads model names AND model card content, so interests like "culinary" or "legal" find specialist models; filters for company, quantizer, capability (Vision, Thinking, Agentic, Coding, MoE), knowledge domain, parameter size and time period; lineage buttons that reveal every fine-tune and quantization of any model.
+- **Download**: resume-safe, checksum-verified transfers at any file size. Power cuts, crashes, sleep and broken connections only pause progress, never destroy it.
+- **Organize**: a Library that reads the real drive, with capability badges, fits-your-memory dots, integrity verification, and one-click export of your collection as a Markdown table.
+- **Plan**: a RAM selector shows what would run on a machine you don't own yet, so you can stock your drive before the new Mac arrives.
+
+**Zero installation.** ModelDock runs on what macOS already ships. No Python installs, no packages, no accounts. Double-click one file and it opens in your browser.
 
 ## Start
 

@@ -55,7 +55,11 @@ document.addEventListener("keydown", (ev) => {
     toggleHelp(true);
   }
 });
-if (!localStorage.getItem("modeldock.helpSeen")) {
+// Deep-link params for sharing and screenshots: ?tab= &q= &theme= &help=
+const URLP = new URLSearchParams(location.search);
+if (URLP.get("help") === "1") {
+  setTimeout(() => toggleHelp(true), 800);
+} else if (URLP.get("help") !== "0" && !localStorage.getItem("modeldock.helpSeen")) {
   localStorage.setItem("modeldock.helpSeen", "1");
   setTimeout(() => toggleHelp(true), 600);   // first visit: open the guide once
 }
@@ -725,5 +729,15 @@ $("#libSort").addEventListener("change", () => state.lib && renderLibrary());
   setInterval(refreshSystem, 5000);
   pollDownloads();
   renderSearchesRow();
-  showDiscover();
+  if (URLP.get("theme")) document.body.dataset.theme = URLP.get("theme");
+  if (URLP.get("tab")) {
+    const t = document.querySelector('.tab[data-tab="' + URLP.get("tab") + '"]');
+    if (t) t.click();
+  }
+  if (URLP.get("q")) {
+    $("#q").value = URLP.get("q");
+    runSearch();
+  } else {
+    showDiscover();
+  }
 })();

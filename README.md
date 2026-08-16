@@ -28,6 +28,24 @@ ModelDock is a local Mac app for building and managing your own collection of AI
 
 **Zero installation.** ModelDock runs on what macOS already ships. No Python installs, no packages, no accounts. Double-click one file and it opens in your browser.
 
+## Screenshots
+
+**The start page: trending models, fresh releases, your watchlist, and the full filter deck.**
+
+![Discover feed](docs/screenshots/discover.png)
+
+**Search results with capability, size and MoE badges. Stars save models to your watchlist.**
+
+![Search results](docs/screenshots/search.png)
+
+**The Library: your collection with fits-your-memory dots, integrity Verify, and Markdown export.**
+
+![Library](docs/screenshots/library.png)
+
+**The built-in guide (press ? anytime) explains every hidden gem.**
+
+![Help guide](docs/screenshots/help.png)
+
 ## Start
 
 Double-click **`start.command`**. Your browser opens at `http://127.0.0.1:8420`. Close the Terminal window to stop the app.

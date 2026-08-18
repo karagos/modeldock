@@ -79,7 +79,9 @@ Claude searches with multiple strategies, reads sizes, memory-fit verdicts and l
 claude mcp add --scope user modeldock -- /usr/bin/python3 /path/to/modeldock/mcp/modeldock_mcp.py
 ```
 
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+**Claude Desktop / Cowork (easiest):** double-click `mcp/modeldock.mcpb` and click Install. It registers ModelDock as a desktop extension.
+
+**Claude Desktop, manual alternative** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {"mcpServers": {"modeldock": {"command": "/usr/bin/python3",

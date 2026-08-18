@@ -1,0 +1,22 @@
+{
+  "manifest_version": "0.2",
+  "name": "modeldock",
+  "display_name": "ModelDock",
+  "version": "1.0.0",
+  "description": "Let Claude search, evaluate and download AI models through your ModelDock app.",
+  "long_description": "Connects Claude to the ModelDock app on this Mac: the home port for your local AI. Describe what you need in plain words ('the best small LLMs for data analysis that fit my Mac') and Claude searches all of Hugging Face through ModelDock's engine, compares sizes, licenses and memory-fit verdicts, and, with your confirmation, downloads checksum-verified models straight to your chosen drive. Claude can also inspect your library, verify model integrity, manage the download queue and curate your watchlist. Requires the ModelDock app to be running (start.command).",
+  "author": {
+    "name": "Stefanos Karagos, CAIO Group",
+    "url": "https://wearecaio.com"
+  },
+  "homepage": "https://github.com/karagos/modeldock",
+  "license": "MIT",
+  "server": {
+    "type": "python",
+    "entry_point": "modeldock_mcp.py",
+    "mcp_config": {
+      "command": "/usr/bin/python3",
+      "args": ["${__dirname}/modeldock_mcp.py"]
+    }
+  }
+}

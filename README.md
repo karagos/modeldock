@@ -6,6 +6,8 @@
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-000000?logo=apple&logoColor=white)](#start)
 [![Dependencies: zero](https://img.shields.io/badge/Dependencies-zero-2e7a52)](#start)
 [![Powered by Hugging Face](https://img.shields.io/badge/Powered%20by-Hugging%20Face-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co)
+[![MCP server included](https://img.shields.io/badge/MCP%20server-included-7c5cff)](#talk-to-modeldock-through-claude-mcp)
+[![Works with Claude](https://img.shields.io/badge/Works%20with-Claude-D97757?logo=claude&logoColor=white)](#talk-to-modeldock-through-claude-mcp)
 [![Made by CAIO Group](https://img.shields.io/badge/Made%20by-CAIO%20Group-D97757)](https://wearecaio.com)
 [![GitHub stars](https://img.shields.io/github/stars/karagos/modeldock?style=social)](https://github.com/karagos/modeldock)
 
@@ -15,7 +17,7 @@
 
 ## What is ModelDock?
 
-ModelDock is a local Mac app for building and managing your own collection of AI models. It searches all of Hugging Face, downloads the models you choose straight to any drive (typically a big external SSD), verifies every byte, and keeps your collection organized so inference apps like LM Studio, Ollama and ComfyUI can use it directly.
+ModelDock is a local Mac app for building and managing your own collection of AI models. It searches all of Hugging Face, downloads the models you choose straight to any drive (typically a big external SSD), verifies every byte, and keeps your collection organized so inference apps like LM Studio, Ollama and ComfyUI can use it directly. And through its built-in MCP server, you can simply tell Claude what you need ("the best small LLMs for data analysis that fit my Mac") and let it find, compare and stock your drive for you.
 
 **The problem it solves:** local AI models are huge (5 GB to 500 GB each) and most tools quietly download them to your internal disk, in formats and folders you don't control. ModelDock puts you in charge: you pick the drive, you see exactly what fits your Mac's memory before downloading, downloads survive crashes and lost connections with byte-exact resume, and your models live in plain, portable folders you own. No cloud, no account required, no database. Everything runs on your machine.
 
@@ -25,6 +27,7 @@ ModelDock is a local Mac app for building and managing your own collection of AI
 - **Download**: resume-safe, checksum-verified transfers at any file size. Power cuts, crashes, sleep and broken connections only pause progress, never destroy it.
 - **Organize**: a Library that reads the real drive, with capability badges, fits-your-memory dots, integrity verification, and one-click export of your collection as a Markdown table.
 - **Plan**: a RAM selector shows what would run on a machine you don't own yet, so you can stock your drive before the new Mac arrives.
+- **Talk**: a built-in MCP server turns ModelDock into a Claude tool. Describe your need in plain words; Claude searches, reasons over sizes, licenses and memory fit, and downloads with your confirmation.
 
 **Zero installation.** ModelDock runs on what macOS already ships. No Python installs, no packages, no accounts. Double-click one file and it opens in your browser.
 

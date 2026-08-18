@@ -65,6 +65,29 @@ A built-in guide covers all of this: press the **?** button in the header (or th
 - **Library**: everything on the current destination with capability badges, fits-dots, sort and filter, **Verify** (re-checks a model against its recorded checksums), **Copy as Markdown** (paste-ready table for docs and posts), **Reveal in Finder**, and **Delete** (always to the Trash, never permanent).
 - **Settings**: destination, preferred quantization (Q2 … BF16 and MLX 3/4/6/8-bit), theme, the color legend, and **Memory (RAM)**. The fits-badge normally uses this Mac's detected memory, but you can pick any size (8 GB to 512 GB) to plan downloads for a different machine, for example before buying a new Mac.
 
+## Talk to ModelDock through Claude (MCP)
+
+ModelDock ships an MCP server, so Claude Desktop, Claude Code and Cowork can operate the app in plain conversation:
+
+> "Find the top 10 small LLMs for number analysis and dashboards, only commercially usable ones, and download the two best that fit my Mac."
+
+Claude searches with multiple strategies, reads sizes, memory-fit verdicts and licenses, reasons over the candidates, and (with your confirmation) queues the downloads and tracks them. Ten tools are exposed: search, model details, download, queue control, library, integrity verify, watchlist, lineage and system info. Zero dependencies, like everything here: the server is one stdlib Python file.
+
+**Claude Code / Cowork:**
+
+```bash
+claude mcp add --scope user modeldock -- /usr/bin/python3 /path/to/modeldock/mcp/modeldock_mcp.py
+```
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{"mcpServers": {"modeldock": {"command": "/usr/bin/python3",
+  "args": ["/path/to/modeldock/mcp/modeldock_mcp.py"]}}}
+```
+
+The ModelDock app must be running (double-click `start.command`); if it isn't, Claude gets a friendly message saying how to start it.
+
 ## Where files go
 
 ```

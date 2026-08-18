@@ -668,23 +668,31 @@ function renderLibrary() {
     const g = el("div", "lib-group"); g.append(el("h3", "", "Chat & text models"));
     text.forEach((m) => {
       const it = el("div", "lib-item");
-      const nm = el("div", "lib-name");
+      const main = el("div", "lib-main");
+      // Line 1: the model's name, alone and readable.
+      const titleRow = el("div", "lib-title-row");
       const fit = el("span", "fit " + (m.fits || "unknown"));
       fit.title = FIT_TITLES[m.fits || "unknown"];
-      const title = el("span", "lib-title", m.company + " / " + m.model);
-      nm.append(fit, title);
+      titleRow.append(fit, el("span", "lib-title", m.company + " / " + m.model));
+      if (m.incomplete) titleRow.append(el("span", "pill gated", "incomplete"));
+      main.append(titleRow);
+      // Line 2: the link and every characteristic.
+      const sub = el("div", "lib-sub");
       const hfa = el("a", "hflink", "HF ↗");
       hfa.href = "https://huggingface.co/" + (m.hf_id || m.company + "/" + m.model);
       hfa.target = "_blank"; hfa.rel = "noopener";
       hfa.title = "Open the model page on Hugging Face (instructions, prompt formats, updates)";
       hfa.addEventListener("click", (ev) => ev.stopPropagation());
-      nm.append(hfa);
-      if (m.params && m.params.moe) nm.append(el("span", "pill moe", "MoE"));
-      if (m.params && m.params.total_b) nm.append(el("span", "pill", m.params.total_b + "B"));
-      (m.caps || []).forEach((c) => LIB_CAPS[c] && nm.append(el("span", "pill", LIB_CAPS[c])));
-      if (m.incomplete) nm.append(el("span", "pill gated", "incomplete"));
-      it.append(nm, el("span", "meta", m.format + " · " + (m.quants.join(", ") || "n/a") +
-        " · " + fmtBytes(m.size) + " · " + new Date(m.mtime * 1000).toLocaleDateString()));
+      sub.append(hfa);
+      if (m.params && m.params.moe) sub.append(el("span", "pill moe", "MoE"));
+      if (m.params && m.params.total_b) sub.append(el("span", "pill", m.params.total_b + "B"));
+      (m.caps || []).forEach((c) => LIB_CAPS[c] && sub.append(el("span", "pill", LIB_CAPS[c])));
+      sub.append(el("span", "pill", m.format));
+      if (m.quants.length) sub.append(el("span", "pill", m.quants.join(", ")));
+      sub.append(el("span", "lib-meta", fmtBytes(m.size) + " · " +
+        new Date(m.mtime * 1000).toLocaleDateString()));
+      main.append(sub);
+      it.append(main);
       it.append(...libActions(m.path));
       it.style.cursor = "pointer";
       it.title = "Click for the model's own documentation";
@@ -719,8 +727,12 @@ function renderLibrary() {
     const g = el("div", "lib-group"); g.append(el("h3", "", "Image & video models (ComfyUI)"));
     comfy.forEach((m) => {
       const it = el("div", "lib-item");
-      it.append(el("span", "", m.name),
-        el("span", "meta", m.subfolder + " · " + fmtBytes(m.size)));
+      const main = el("div", "lib-main");
+      main.append(el("div", "lib-title-row"), el("div", "lib-sub"));
+      main.children[0].append(el("span", "lib-title", m.name));
+      main.children[1].append(el("span", "pill", m.subfolder),
+        el("span", "lib-meta", fmtBytes(m.size)));
+      it.append(main);
       it.append(...libActions(m.path));
       g.append(it);
     });

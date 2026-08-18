@@ -671,7 +671,14 @@ function renderLibrary() {
       const nm = el("div", "lib-name");
       const fit = el("span", "fit " + (m.fits || "unknown"));
       fit.title = FIT_TITLES[m.fits || "unknown"];
-      nm.append(fit, el("span", "", m.company + " / " + m.model));
+      const title = el("span", "lib-title", m.company + " / " + m.model);
+      nm.append(fit, title);
+      const hfa = el("a", "hflink", "HF ↗");
+      hfa.href = "https://huggingface.co/" + (m.hf_id || m.company + "/" + m.model);
+      hfa.target = "_blank"; hfa.rel = "noopener";
+      hfa.title = "Open the model page on Hugging Face (instructions, prompt formats, updates)";
+      hfa.addEventListener("click", (ev) => ev.stopPropagation());
+      nm.append(hfa);
       if (m.params && m.params.moe) nm.append(el("span", "pill moe", "MoE"));
       if (m.params && m.params.total_b) nm.append(el("span", "pill", m.params.total_b + "B"));
       (m.caps || []).forEach((c) => LIB_CAPS[c] && nm.append(el("span", "pill", LIB_CAPS[c])));
@@ -679,6 +686,30 @@ function renderLibrary() {
       it.append(nm, el("span", "meta", m.format + " · " + (m.quants.join(", ") || "n/a") +
         " · " + fmtBytes(m.size) + " · " + new Date(m.mtime * 1000).toLocaleDateString()));
       it.append(...libActions(m.path));
+      it.style.cursor = "pointer";
+      it.title = "Click for the model's own documentation";
+      it.addEventListener("click", async (ev) => {
+        if (ev.target.closest("button, a")) return;
+        const open = it.nextElementSibling?.classList.contains("lib-expand");
+        document.querySelectorAll(".lib-expand").forEach((x) => x.remove());
+        if (open) return;                      // second click folds it
+        const ex = el("div", "lib-expand", "Loading model card…");
+        it.after(ex);
+        try {
+          const c = await post("/api/library/card", { path: m.path });
+          ex.replaceChildren();
+          const head = el("div", "dbadges");
+          const a = el("a", "hflink", "Open on Hugging Face ↗ (full instructions and updates)");
+          a.href = c.hf_url; a.target = "_blank"; a.rel = "noopener";
+          head.append(a);
+          if (c.offline) head.append(el("span", "pill", "card saved offline"));
+          ex.append(head);
+          ex.append(el("p", "desc", c.excerpt ||
+            "This model has no description in its card. The Hugging Face page may still have discussions and examples."));
+        } catch (e) {
+          ex.textContent = e.message;
+        }
+      });
       g.append(it);
     });
     box.append(g);

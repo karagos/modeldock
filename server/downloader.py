@@ -170,6 +170,7 @@ class DownloadManager:
             job["downloaded_bytes"] = done_bytes
             self.store.save()
         self._write_manifest(job)
+        self._save_model_card(job)
         job["state"] = "done"
         self.store.save()
 
@@ -279,6 +280,17 @@ class DownloadManager:
         if f.get("sha256") and digest and digest != f["sha256"]:
             os.remove(part_path)
             raise RuntimeError("verification failed: checksum mismatch (corrupt download removed)")
+
+    def _save_model_card(self, job):
+        """Keep the model's documentation next to the model: offline, forever."""
+        try:
+            import hf_api
+            card = hf_api.model_readme(job["model_id"])
+            if card.strip():
+                with open(os.path.join(job["dest_dir"], "ModelCard.md"), "w") as fh:
+                    fh.write(card)
+        except Exception:
+            pass   # documentation is a bonus, never a download failure
 
     def _write_manifest(self, job):
         """Record checksums next to the files so the Library can re-verify anytime."""

@@ -5,6 +5,15 @@ import os
 import catalog
 
 MANIFEST = ".modeldock.json"
+MODEL_CARD = "ModelCard.md"
+
+
+def manifest_field(folder, key):
+    try:
+        with open(os.path.join(folder, MANIFEST)) as fh:
+            return json.load(fh).get(key)
+    except (OSError, ValueError):
+        return None
 
 
 def manifest_tags(folder):
@@ -41,7 +50,7 @@ def _entry_files(folder):
     out = []
     for base, _dirs, names in os.walk(folder):
         for n in names:
-            if n == ".DS_Store":
+            if n == ".DS_Store" or n == MODEL_CARD or n.startswith("."):
                 continue
             p = os.path.join(base, n)
             try:
@@ -93,6 +102,7 @@ def scan(dest):
                 quants.add(folder_q)
             fmt = "GGUF" if any(f[0].lower().endswith((".gguf", ".gguf.part")) for f in files) else "MLX"
             result["text_models"].append({
+                "hf_id": manifest_field(mpath, "model_id") or (company + "/" + model),
                 "company": company, "model": model, "path": mpath, "size": size,
                 "mtime": max(f[2] for f in files), "quants": sorted(quants), "format": fmt,
                 "caps": sorted(catalog.detect_capabilities(

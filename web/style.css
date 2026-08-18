@@ -165,6 +165,12 @@ button.ghost {
   border-radius: 8px; padding: 8px 12px; font-size: 14px;
 }
 .lib-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.lib-name .hflink { margin-left: 2px; flex-shrink: 0; }
+.lib-expand {
+  background: var(--bg3); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 16px; margin: -2px 0 8px; font-size: 14px;
+}
+.lib-expand .desc { margin-bottom: 0; background: none; padding: 0; }
 .lib-group h3 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
 .lib-item {
   display: flex; align-items: center; gap: 12px; background: var(--bg2);

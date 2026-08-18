@@ -226,6 +226,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._api_delete(body)
             elif route == "/api/library/verify":
                 self._api_verify(body)
+            elif route == "/api/library/card":
+                self._api_card(body)
             elif route == "/api/searches/recent":
                 self._api_search_recent(body)
             elif route == "/api/searches/save":
@@ -430,6 +432,31 @@ class Handler(BaseHTTPRequestHandler):
                                    if w["id"] != body.get("id")]
         STORE.save()
         self._json({"watchlist": STORE.data["watchlist"]})
+
+    def _api_card(self, body):
+        """The model's own documentation: local ModelCard.md, fetched once and
+        kept offline forever if it was missing (pre-card downloads)."""
+        path = body.get("path", "")
+        if not inside_models(path) or not os.path.isdir(path):
+            self._json({"error": "Refusing: path is not inside the models folder."}, 400)
+            return
+        hf_id = library.manifest_field(path, "model_id") or "/".join(
+            os.path.normpath(path).split(os.sep)[-2:])
+        card_path = os.path.join(path, "ModelCard.md")
+        offline = os.path.exists(card_path)
+        text = ""
+        if offline:
+            with open(card_path, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        else:
+            text = hf_api.model_readme(hf_id)
+            if text.strip():
+                with open(card_path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+        self._json({"hf_url": "https://huggingface.co/" + hf_id,
+                    "excerpt": catalog.readme_excerpt(text, limit=900),
+                    "offline": offline or bool(text.strip()),
+                    "card_path": card_path if text.strip() else None})
 
     def _api_verify(self, body):
         from downloader import MANIFEST, sha256_file

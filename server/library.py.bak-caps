@@ -1,19 +1,7 @@
 """Reads the destination's real folders. No cache, no database — always truthful."""
-import json
 import os
 
 import catalog
-
-MANIFEST = ".modeldock.json"
-
-
-def manifest_tags(folder):
-    """The Hub's own tags, recorded at download time. [] when we never saw them."""
-    try:
-        with open(os.path.join(folder, MANIFEST)) as fh:
-            return json.load(fh).get("tags") or []
-    except (OSError, ValueError):
-        return []
 
 
 # Other tools write caches beside the model folders. LM Studio pulls through
@@ -95,8 +83,7 @@ def scan(dest):
             result["text_models"].append({
                 "company": company, "model": model, "path": mpath, "size": size,
                 "mtime": max(f[2] for f in files), "quants": sorted(quants), "format": fmt,
-                "caps": sorted(catalog.detect_capabilities(
-                    company + "/" + model, manifest_tags(mpath))),
+                "caps": sorted(catalog.detect_capabilities(company + "/" + model, [])),
                 "params": catalog.parse_params(model),
                 "incomplete": any(f[0].endswith(".part") for f in files)})
             result["total_bytes"] += size

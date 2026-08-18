@@ -1,32 +1,7 @@
 """Reads the destination's real folders. No cache, no database — always truthful."""
-import json
 import os
 
 import catalog
-
-MANIFEST = ".modeldock.json"
-
-
-def manifest_tags(folder):
-    """The Hub's own tags, recorded at download time. [] when we never saw them."""
-    try:
-        with open(os.path.join(folder, MANIFEST)) as fh:
-            return json.load(fh).get("tags") or []
-    except (OSError, ValueError):
-        return []
-
-
-# Other tools write caches beside the model folders. LM Studio pulls through
-# huggingface_hub, which leaves hub/ and xet/ in the destination root.
-CACHE_DIRS = {'hub', 'xet', '.locks', 'blobs', 'refs', 'snapshots', '.cache', 'tmp'}
-
-
-def _is_cache(path, name):
-    # True for another tool's cache directory rather than a model.
-    if name.startswith('.') or name.lower() in CACHE_DIRS:
-        return True
-    # https://bford.info/cachedir/ - a well-behaved cache marks itself.
-    return os.path.isfile(os.path.join(path, 'CACHEDIR.TAG'))
 
 
 def disk_stats(dest):
@@ -62,7 +37,7 @@ def scan(dest):
     if os.path.isdir(comfy_root):
         for sub in sorted(os.listdir(comfy_root)):
             spath = os.path.join(comfy_root, sub)
-            if not os.path.isdir(spath) or _is_cache(spath, sub):
+            if not os.path.isdir(spath):
                 continue
             for name, size, mtime in _entry_files(spath):
                 result["comfy_models"].append({
@@ -75,11 +50,11 @@ def scan(dest):
         return result
     for company in sorted(os.listdir(llm_root)):
         cpath = os.path.join(llm_root, company)
-        if not os.path.isdir(cpath) or _is_cache(cpath, company):
+        if not os.path.isdir(cpath) or company.startswith("."):
             continue
         for model in sorted(os.listdir(cpath)):
             mpath = os.path.join(cpath, model)
-            if not os.path.isdir(mpath) or _is_cache(mpath, model):
+            if not os.path.isdir(mpath):
                 continue
             files = _entry_files(mpath)
             if not files:
@@ -95,8 +70,7 @@ def scan(dest):
             result["text_models"].append({
                 "company": company, "model": model, "path": mpath, "size": size,
                 "mtime": max(f[2] for f in files), "quants": sorted(quants), "format": fmt,
-                "caps": sorted(catalog.detect_capabilities(
-                    company + "/" + model, manifest_tags(mpath))),
+                "caps": sorted(catalog.detect_capabilities(company + "/" + model, [])),
                 "params": catalog.parse_params(model),
                 "incomplete": any(f[0].endswith(".part") for f in files)})
             result["total_bytes"] += size

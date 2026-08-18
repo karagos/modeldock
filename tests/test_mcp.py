@@ -54,3 +54,39 @@ class TestMcpProtocol(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMcpHttpErrors(unittest.TestCase):
+    def test_http_error_body_is_relayed_not_masked(self):
+        import http.server
+        import threading
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                body = json.dumps({"error": "This version is already in your library."}).encode()
+                self.send_response(409)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            out = talk([
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                 "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                            "clientInfo": {"name": "t", "version": "0"}}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                 "params": {"name": "system_info", "arguments": {}}},
+            ], env={"MODELDOCK_URL": "http://127.0.0.1:%d" % srv.server_address[1]})
+            call = next(m for m in out if m["id"] == 2)
+            self.assertTrue(call["result"]["isError"])
+            text = call["result"]["content"][0]["text"]
+            self.assertIn("already in your library", text)
+            self.assertNotIn("not running", text)
+        finally:
+            srv.shutdown()

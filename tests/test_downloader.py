@@ -298,3 +298,15 @@ class TestDownloadArmor(unittest.TestCase):
             m = json.load(open(os.path.join(d, ".modeldock.json")))
             self.assertIn("file.bin", m["files"])
             self.assertEqual(m["files"]["file.bin"]["size"], len(PAYLOAD))
+
+
+class TestPauseQueued(unittest.TestCase):
+    def test_pausing_a_queued_job_takes_effect(self):
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(os.path.join(d, "s.json"))
+            mgr = DownloadManager(store, opener=range_opener)   # empty queue: no worker
+            job = make_job(d)
+            store.data["queue"].append(job)                     # queued, worker not started
+            mgr.pause("j1")
+            self.assertEqual(store.data["queue"][0]["state"], "paused",
+                             "pause on a queued job must stick, not be silently dropped")

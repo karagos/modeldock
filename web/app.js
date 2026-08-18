@@ -118,7 +118,10 @@ async function loadSettings() {
   $$("#quantPref .chip").forEach((c) =>
     c.classList.toggle("active", c.dataset.v === state.settings.preferred_quant));
   $("#ramSel").value = String(state.settings.ram_override_gb || 0);
-  $("#hfToken").value = state.settings.hf_token || "";
+  $("#hfToken").value = "";
+  $("#hfToken").placeholder = state.settings.has_hf_token
+    ? "Token saved. Paste a new one to replace, or Save empty to remove."
+    : "hf_…";
 }
 $("#tokenBtn").addEventListener("click", () =>
   saveSettings({ hf_token: $("#hfToken").value.trim() }));
@@ -481,6 +484,7 @@ async function openDetail(card, cardEl) {
           state.results = r.results;
           state.customHeading = lbl + " of " + m.id + " (" + r.results.length + ")";
           d.hidden = true; state.detailFor = null;
+          $("#results").after(d);   // rescue #detail before the grid is wiped
           renderResults();
           window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (e) { toast(e.message, true); }

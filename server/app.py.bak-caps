@@ -99,31 +99,9 @@ def variant_downloaded(d, mid, mtype, capability, files):
         dd, catalog.sanitize_component(os.path.basename(f["path"])))) for f in files)
 
 
-ALLOWED_HOSTS = {"127.0.0.1:8420", "localhost:8420"}
-ALLOWED_ORIGINS = {"http://127.0.0.1:8420", "http://localhost:8420"}
-
-
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
-
-    def _request_allowed(self, write=False):
-        """Blocks DNS-rebinding (Host check) and cross-site form POSTs
-        (Origin + Content-Type). Non-browser callers (frontend fetch, MCP,
-        curl) send no Origin or our own, and JSON content."""
-        if self.headers.get("Host", "") not in ALLOWED_HOSTS:
-            self._json({"error": "Rejected: unexpected Host header."}, 403)
-            return False
-        if write:
-            origin = self.headers.get("Origin", "")
-            if origin and origin not in ALLOWED_ORIGINS:
-                self._json({"error": "Rejected: cross-origin request."}, 403)
-                return False
-            ctype = self.headers.get("Content-Type", "")
-            if not ctype.startswith("application/json"):
-                self._json({"error": "Rejected: JSON body required."}, 403)
-                return False
-        return True
 
     # ---------- helpers ----------
     def _json(self, obj, code=200):
@@ -161,8 +139,6 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- GET ----------
     def do_GET(self):
         route = self.path.split("?")[0]
-        if not self._request_allowed():
-            return
         try:
             if route == "/api/ping":
                 self._json({"ok": True})
@@ -188,10 +164,7 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/api/watchlist":
                 self._json({"watchlist": STORE.data["watchlist"]})
             elif route == "/api/settings":
-                s = dict(STORE.data["settings"])
-                s["has_hf_token"] = bool(s.get("hf_token"))
-                s["hf_token"] = ""     # the secret never leaves the server
-                self._json(s)
+                self._json(STORE.data["settings"])
             elif route == "/api/system":
                 d = dest()
                 connected = bool(d) and os.path.isdir(d)
@@ -210,8 +183,6 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- POST ----------
     def do_POST(self):
         route = self.path.split("?")[0]
-        if not self._request_allowed(write=True):
-            return
         try:
             body = self._body()
             if route == "/api/download":
@@ -313,13 +284,6 @@ class Handler(BaseHTTPRequestHandler):
                 cards = []
                 for m in hf_api.search_models(prm):
                     card = make_card(m, t0)
-                    p = card["params"]
-                    if want_moe and not (p and p["moe"]):
-                        continue
-                    if want_bucket and card["bucket"] != want_bucket:
-                        continue
-                    if cutoff and (card["created"] or "9999") < cutoff:
-                        continue
                     card["via_term"] = term
                     cards.append(card)
                 per_query.append(cards)
@@ -342,8 +306,6 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 if want_bucket and catalog.size_bucket(p["total_b"] if p else None) != want_bucket:
                     continue
-                if cutoff:
-                    continue   # full-text hits carry no release date; a period window excludes them
                 ft_cards.append({
                     "id": h["id"], "company": h["id"].split("/")[0], "mtype": mt,
                     "downloads": 0, "likes": h["likes"], "updated": "", "created": "",
@@ -539,11 +501,7 @@ class Handler(BaseHTTPRequestHandler):
         if not d or not os.path.isdir(d):
             self._json({"error": "No destination folder. Choose one in Settings first."}, 400)
             return
-        files = body.get("files") or []
-        if not files:
-            self._json({"error": "No files given for this download."}, 400)
-            return
-        total = sum(f["size"] for f in files)
+        total = sum(f["size"] for f in body["files"])
         free = library.disk_stats(d)["free"]
         if total * 1.05 + 500 * 1024 * 1024 > free:
             self._json({"error": "Not enough free space on the destination "
@@ -558,13 +516,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         dest_dir = variant_dest_dir(d, mid, body.get("mtype", "gguf"),
                                     body.get("capability", ""), body["files"][0]["path"])
-        # Capabilities belong to the model, not to its folder name. Ask the Hub
-        # once here so the manifest can carry the answer for good.
-        try:
-            tags = hf_api.model_info(mid).get("tags", []) or []
-        except Exception:            # metadata must never block a download
-            tags = []
-        job = {"id": make_job_id(), "model_id": mid, "tags": tags,
+        job = {"id": make_job_id(), "model_id": mid,
                "label": "%s · %s" % (mid, body.get("variant_label", "")),
                "dest_dir": dest_dir, "state": "queued", "downloaded_bytes": 0, "error": "",
                "total_bytes": total,
@@ -625,8 +577,7 @@ class Handler(BaseHTTPRequestHandler):
         if not inside_models(path) or not os.path.exists(path):
             self._json({"error": "Refusing: path is not inside the models folder."}, 400)
             return
-        script = ('tell application "Finder" to delete POSIX file "%s"'
-                  % path.replace("\\", "\\\\").replace('"', '\\"'))
+        script = 'tell application "Finder" to delete POSIX file "%s"' % path.replace('"', '\\"')
         r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
         if r.returncode != 0:
             self._json({"error": "Could not move to Trash: %s" % r.stderr.strip()}, 500)

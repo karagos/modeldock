@@ -50,14 +50,6 @@ class DownloadManager:
             self._ensure_worker()
 
     def pause(self, job_id):
-        with self._lock:
-            job = self._find(job_id)
-            if job and job["state"] == "queued":
-                # Not yet picked up by the worker: pause it directly, or the
-                # signal would be dropped when the worker dequeues it.
-                job["state"] = "paused"
-                self.store.save()
-                return
         self._signal(job_id, "pause")
 
     def cancel(self, job_id):
@@ -198,7 +190,6 @@ class DownloadManager:
                     pos += len(block)
         attempts = 0
         while True:
-            self._check_signal(job)   # honor pause/cancel even while offline
             if pos >= f["size"]:
                 return hasher.hexdigest()
             try:
@@ -237,22 +228,13 @@ class DownloadManager:
                         "or requires a Hugging Face account." % e.code) from e
                 attempts += 1
                 job["error"] = "Hugging Face hiccup (HTTP %d). Retrying…" % e.code
-                self._interruptible_sleep(job, min(2 ** min(attempts, 6), NET_BACKOFF_MAX))
+                time.sleep(min(2 ** min(attempts, 6), NET_BACKOFF_MAX))
             except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as e:
                 if isinstance(e, OSError) and not os.path.isdir(job["dest_dir"]):
                     raise RuntimeError("Destination drive is not available") from e
                 attempts += 1
                 job["error"] = "Waiting for connection. Retrying…"
-                self._interruptible_sleep(job, min(2 ** min(attempts, 6), NET_BACKOFF_MAX))
-
-    def _interruptible_sleep(self, job, seconds):
-        """Backoff that still honors pause/cancel, checked every second."""
-        slept = 0.0
-        while slept < seconds:
-            self._check_signal(job)
-            step = min(1.0, seconds - slept)
-            time.sleep(step)
-            slept += step
+                time.sleep(min(2 ** min(attempts, 6), NET_BACKOFF_MAX))
 
     def _check_signal(self, job):
         sig = self._signals.get(job["id"])
@@ -289,9 +271,6 @@ class DownloadManager:
                 data = json.load(fh)
         except (OSError, ValueError):
             pass
-        if job.get("tags"):
-            data["tags"] = list(job["tags"])
-        data["model_id"] = job["model_id"]
         files = data.setdefault("files", {})
         for f in job["files"]:
             files[f["local_name"]] = {"sha256": f.get("sha256"), "size": f["size"],

@@ -68,7 +68,8 @@ TOOLS = [
      "inputSchema": {"type": "object", "required": ["id", "variant_label"], "properties": {
          "id": {"type": "string"},
          "variant_label": {"type": "string", "description": "Exact label of the variant from get_model"},
-         "type": {"type": "string", "description": "gguf (default), mlx, or image"}}}},
+         "type": {"type": "string", "description": "gguf (default), mlx, or image"},
+         "capability": {"type": "string", "description": "For image type: image-gen, video-gen, lora or upscaler; routes the file to the right ComfyUI subfolder"}}}},
     {"name": "download_status",
      "description": "Current download queue: states, bytes done/total, errors.",
      "annotations": {"readOnlyHint": True},
@@ -170,7 +171,7 @@ def call_tool(name, args):
         return http("POST", "/api/download", {
             "model_id": args["id"], "variant_label": variant["label"],
             "files": variant["files"] if "files" in variant else [],
-            "mtype": mtype, "capability": ""})
+            "mtype": mtype, "capability": args.get("capability", "")})
     if name == "download_status":
         return http("GET", "/api/downloads")
     if name == "manage_download":
@@ -221,6 +222,14 @@ def handle(msg):
             return {"jsonrpc": "2.0", "id": msg_id, "result": {
                 "content": [{"type": "text", "text": text}],
                 "isError": bool(is_error)}}
+        except urllib.error.HTTPError as e:
+            try:
+                detail = json.loads(e.read().decode()).get("error", "")
+            except Exception:
+                detail = ""
+            text = detail or ("ModelDock returned HTTP %d." % e.code)
+            return {"jsonrpc": "2.0", "id": msg_id, "result": {
+                "content": [{"type": "text", "text": text}], "isError": True}}
         except urllib.error.URLError:
             return {"jsonrpc": "2.0", "id": msg_id, "result": {
                 "content": [{"type": "text", "text": NOT_RUNNING}], "isError": True}}
